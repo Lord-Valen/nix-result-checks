@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2026 Lord-Valen
+#
+# SPDX-License-Identifier: CC0-1.0
+
+version = 1
+
+[[annotations]]
+path = [
+    "flake.lock",
+    "nix/dev/flake.lock",
+]
+SPDX-FileCopyrightText = "2026 Lord Valen"
+SPDX-License-Identifier = "CC0-1.0"
