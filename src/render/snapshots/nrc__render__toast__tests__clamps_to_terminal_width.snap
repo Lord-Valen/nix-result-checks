@@ -1,0 +1,14 @@
+---
+source: tui/src/render/toast.rs
+expression: "snapshot(\"this message is definitely wider than the terminal\", 20, 10)"
+---
+"                    "
+"                    "
+"┌Error─────────────┐"
+"│ this message is  │"
+"│ definitely wider │"
+"│ than the         │"
+"│ terminal         │"
+"└──────────────────┘"
+"                    "
+"                    "

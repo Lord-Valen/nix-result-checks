@@ -1,0 +1,15 @@
+{
+  "q": "Quit",
+  "esc": "Quit",
+  "r": "Reload",
+  "n": "SelectNext",
+  "e": "SelectPrev",
+  "down": "SelectNext",
+  "up": "SelectPrev",
+  "enter": "ToggleDetail",
+  "tab": "ToggleFocus",
+  "left": "ScrollLeft",
+  "right": "ScrollRight",
+  "ctrl+d": "PageDown",
+  "ctrl+u": "PageUp"
+}
