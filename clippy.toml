@@ -2,11 +2,4 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-/target
-
-.direnv
-.envrc
-/result*
-
-# Emacs lockfiles
-.#*
+excessive-nesting-threshold = 4

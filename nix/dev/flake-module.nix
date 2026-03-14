@@ -9,7 +9,9 @@ in
 {
   imports = [
     ../modules/resultChecks/flakeModule.nix
-    ./tests.nix
+    ./devshell.nix
+    ./nrc.nix
+    (inputs.import-tree ./tests)
   ];
   perSystem =
     {
@@ -24,6 +26,7 @@ in
         inherit system;
         overlays = [
           overlays.default
+          inputs.rust-overlay.overlays.default
         ];
       };
 
@@ -31,11 +34,20 @@ in
       packages.htmlDocs = pkgs.resultChecks.html-docs;
       packages.manPages = pkgs.resultChecks.man-pages;
       packages.checks-report = config.resultChecks.report;
+      packages.nrc = pkgs.resultChecks.nrc;
       apps.run-checks = {
         type = "app";
         program = toString (
           pkgs.writeShellScript "run-checks" ''
             cat ${config.resultChecks.report}
+          ''
+        );
+      };
+      apps.nrc = {
+        type = "app";
+        program = toString (
+          pkgs.writeShellScript "nrc" ''
+            ${pkgs.resultChecks.nrc}/bin/nrc ${config.resultChecks.report}
           ''
         );
       };

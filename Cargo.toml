@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 Lord-Valen
+#
+# SPDX-License-Identifier: CC0-1.0
+
+[package]
+name = "nrc"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.102"
+clap = { version = "4.6.0", features = ["derive"] }
+notify = "8.2.0"
+ratatui = "0.30.0"
+dirs = "6.0.0"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+
+[build-dependencies]
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+
+[dev-dependencies]
+insta = "1.46.3"

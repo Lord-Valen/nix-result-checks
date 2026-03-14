@@ -1,0 +1,9 @@
+---
+source: tui/src/render/list.rs
+expression: "snapshot(&entries, 20, 5)"
+---
+"┌nix-result-checks─┐"
+"│ ✓ check-overflow │"
+"│                  │"
+"│                  │"
+"└──────────────────┘"

@@ -24,5 +24,6 @@ in
     ./build-support
     ./generators
     ./docs
+    ./apps
   ];
 }
