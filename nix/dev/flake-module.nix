@@ -14,6 +14,7 @@ in
   perSystem =
     {
       config,
+      lib,
       pkgs,
       system,
       ...
@@ -26,6 +27,9 @@ in
         ];
       };
 
+      packages.options-doc = pkgs.resultChecks.options-doc;
+      packages.htmlDocs = pkgs.resultChecks.html-docs;
+      packages.manPages = pkgs.resultChecks.man-pages;
       packages.checks-report = config.resultChecks.report;
       apps.run-checks = {
         type = "app";

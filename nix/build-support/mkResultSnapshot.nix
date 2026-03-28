@@ -2,6 +2,54 @@
 #
 # SPDX-License-Identifier: MIT
 
+/**
+  Assert the outputs of a result check match expected values.
+
+  Compares `exitCode`, `stdout`, and/or `stderr` of `resultCheck`
+  against expected strings. Any mismatch is reported to the snapshot's
+  own `stderr` output. At least one of `exitCode`, `stdout`, or `stderr`
+  must be provided.
+
+  # Type
+
+  ```
+  mkResultSnapshot :: String -> AttrSet -> AttrSet -> Derivation
+  ```
+
+  # Arguments
+
+  name
+  : Check name. Becomes the derivation name `snapshot-<name>`.
+
+  env
+  : Extra derivation attributes (see `mkResult`). Pass `{ }` if unused.
+
+  snapshot
+  : Attribute set with the following keys:
+
+    `resultCheck` *(required)*
+    : The result check derivation to test.
+
+    `exitCode` *(optional)*
+    : Expected exit code string, e.g. `"0"` or `"1"`.
+
+    `stdout` *(optional)*
+    : Expected stdout content.
+
+    `stderr` *(optional)*
+    : Expected stderr content.
+
+  # Example
+
+  ```nix
+  mkResultSnapshot "hello-snapshot" { }
+    {
+      resultCheck = mkResult "hello" { } "echo hi";
+      exitCode = "0";
+      stdout = "hi\n";
+    }
+  ```
+*/
 { lib, mkResultWith }:
 name: env:
 {

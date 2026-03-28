@@ -2,6 +2,39 @@
 #
 # SPDX-License-Identifier: MIT
 
+/**
+  Generate a newline-delimited JSON report from result check outputs.
+
+  Each line of the output is a JSON object with the following fields:
+
+  - `name`: the attribute name of the check
+  - `kind`: the check type (`"result"`, `"snapshot"`, or `"eval"`)
+  - `status`: `"pass"`, `"fail"`, or `"skip"`
+  - `exitCode`: the raw exit code string
+  - `stdout`: captured stdout
+  - `stderr`: captured stderr
+  - `drvPath`: path to the check derivation in the Nix store
+
+  `kind` reflects `passthru.type` on the result check derivation.
+  `status` is `"skip"` when `exitCode` is empty (set by `mkSkip`).
+
+  # Type
+
+  ```
+  json :: AttrSet -> Derivation
+  ```
+
+  # Arguments
+
+  checks
+  : Attribute set of result check derivations.
+
+  # Example
+
+  ```nix
+  pkgs.resultChecks.json.override { inherit checks; }
+  ```
+*/
 {
   checks ? { },
   jq,

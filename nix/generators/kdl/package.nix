@@ -2,6 +2,40 @@
 #
 # SPDX-License-Identifier: MIT
 
+/**
+  Generate a KDL report from result check outputs.
+
+  Renders a KDL document via a Mustache template. Each check becomes a
+  node with the following properties:
+
+  - `name`: the attribute name of the check
+  - `kind`: the check type (`"result"`, `"snapshot"`, or `"eval"`)
+  - `status`: `"pass"`, `"fail"`, or `"skip"`
+  - `exitCode`: the raw exit code string
+  - `stdout`: captured stdout (lines indented with four spaces)
+  - `stderr`: captured stderr (lines indented with four spaces)
+  - `drvPath`: path to the check derivation in the Nix store
+
+  `kind` reflects `passthru.type` on the result check derivation.
+  `status` is `"skip"` when `exitCode` is empty (set by `mkSkip`).
+
+  # Type
+
+  ```
+  kdl :: AttrSet -> Derivation
+  ```
+
+  # Arguments
+
+  checks
+  : Attribute set of result check derivations.
+
+  # Example
+
+  ```nix
+  pkgs.resultChecks.kdl.override { inherit checks; }
+  ```
+*/
 {
   checks ? { },
   jq,

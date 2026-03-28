@@ -23,5 +23,6 @@ in
   resultChecks = discover [
     ./build-support
     ./generators
+    ./docs
   ];
 }

@@ -24,7 +24,7 @@
         checks = lib.mkOption {
           type = lib.types.attrsOf lib.types.package;
           default = { };
-          description = "Checks that produce Result monad outputs (out, log, exitCode).";
+          description = "Checks that produce Result monad outputs (out, stdout, stderr, exitCode).";
           apply =
             x:
             lib.mapAttrs (
@@ -64,6 +64,7 @@
         reportGenerator = lib.mkOption {
           type = with lib.types; functionTo package;
           default = checks: pkgs.resultChecks.json.override { inherit checks; };
+          defaultText = lib.literalExpression "checks: pkgs.resultChecks.json.override { inherit checks; }";
           description = ''
             Function that generates the report package from the check results.
 
@@ -75,6 +76,7 @@
         report = lib.mkOption {
           type = lib.types.package;
           default = cfg.reportGenerator cfg.checks;
+          defaultText = lib.literalExpression "cfg.reportGenerator cfg.checks";
           readOnly = true;
           description = ''
             The generated report package.
