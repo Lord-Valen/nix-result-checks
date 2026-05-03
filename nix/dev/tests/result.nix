@@ -9,9 +9,6 @@
       resultChecks.checks =
         let
           inherit (pkgs.resultChecks) mkResult mkResultSnapshot;
-          inherit (config.resultChecks) checks;
-        in
-        {
           test-passing-actual = mkResult "test-passing-actual" { } ''
             echo "Starting test suite..." >&2
             echo "Running unit tests..." >&2
@@ -20,9 +17,10 @@
             echo "All tests completed successfully" >&2
             exit 0
           '';
-
+        in
+        {
           test-passing = mkResultSnapshot "test-passing" { } {
-            resultCheck = checks.test-passing-actual;
+            resultCheck = test-passing-actual;
             exitCode = "0";
             stdout = ''
               Test 1: PASS

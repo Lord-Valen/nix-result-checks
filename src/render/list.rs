@@ -78,10 +78,18 @@ mod tests {
 }
 
 pub fn render_list(frame: &mut Frame, app: &App, ui: &Ui, area: Rect) {
+    let status = if ui.rebuilding {
+        " rebuilding… ".to_string()
+    } else if let Some(n) = ui.watch_count {
+        format!(" watching {n} files ")
+    } else {
+        String::new()
+    };
     let block = Block::default()
         .borders(Borders::ALL)
         .padding(Padding::horizontal(1))
-        .title("nix-result-checks");
+        .title("nix-result-checks")
+        .title_bottom(status.as_str());
     let inner = block.inner(area);
     frame.render_widget(block, area);
 

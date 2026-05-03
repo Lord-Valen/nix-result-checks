@@ -57,6 +57,8 @@ pub struct Ui {
     pub stderr_scroll: u16,
     pub stderr_h_scroll: u16,
     pub toast: Option<String>,
+    pub rebuilding: bool,
+    pub watch_count: Option<usize>,
     stdout_bounds: PanelBounds,
     stderr_bounds: PanelBounds,
     tx: mpsc::Sender<Event>,
@@ -73,16 +75,12 @@ impl Ui {
             stderr_scroll: 0,
             stderr_h_scroll: 0,
             toast: None,
+            rebuilding: false,
+            watch_count: None,
             stdout_bounds: PanelBounds::default(),
             stderr_bounds: PanelBounds::default(),
             tx,
         }
-    }
-
-    pub fn reset(&mut self) {
-        self.selected = None;
-        self.detail_open = false;
-        self.reset_scrolls();
     }
 
     /// Called after each render to update panel dimensions and clamp scrolls.

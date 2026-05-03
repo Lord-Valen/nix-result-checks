@@ -18,6 +18,7 @@ pub enum Source {
     File(PathBuf),
     Flake(String),
     Expr { expr: String, impure: bool },
+    NixFile { file: PathBuf, attr: Option<String> },
 }
 
 #[allow(clippy::needless_pass_by_value)]
@@ -40,6 +41,10 @@ fn stream(source: &Source, tx: &Sender<Event>) {
             Some(path) => open_and_stream(&path, tx),
             None => false,
         },
+        Source::NixFile { file, attr } => match nix_build_file(file, attr.as_deref(), tx) {
+            Some(path) => open_and_stream(&path, tx),
+            None => false,
+        },
     };
     if !ended_on_doc {
         let _ = tx.send(Event::Done);
@@ -56,21 +61,13 @@ fn open_and_stream(path: &Path, tx: &Sender<Event>) -> bool {
     }
 }
 
-fn nix_build(args: &[&str], impure: bool, tx: &Sender<Event>) -> Option<PathBuf> {
-    let result = process::Command::new("nix")
-        .arg("build")
-        .args(impure.then_some("--impure"))
-        .args(["--no-link", "--print-out-paths"])
-        .args(args)
-        .output();
-    match result {
+fn run_builder(cmd: &mut process::Command, label: &str, tx: &Sender<Event>) -> Option<PathBuf> {
+    match cmd.output() {
         Ok(o) if o.status.success() => {
             let s = String::from_utf8_lossy(&o.stdout);
-            let path = s.lines().next().unwrap_or("").trim();
+            let path = s.lines().next().unwrap_or("").trim().to_owned();
             if path.is_empty() {
-                let _ = tx.send(Event::Error(anyhow::anyhow!(
-                    "nix build produced no output"
-                )));
+                let _ = tx.send(Event::Error(anyhow::anyhow!("{label} produced no output")));
                 None
             } else {
                 Some(PathBuf::from(path))
@@ -78,7 +75,7 @@ fn nix_build(args: &[&str], impure: bool, tx: &Sender<Event>) -> Option<PathBuf>
         }
         Ok(o) => {
             let stderr = String::from_utf8_lossy(&o.stderr).into_owned();
-            let _ = tx.send(Event::Error(anyhow::anyhow!("nix build failed:\n{stderr}")));
+            let _ = tx.send(Event::Error(anyhow::anyhow!("{label} failed:\n{stderr}")));
             None
         }
         Err(e) => {
@@ -86,6 +83,29 @@ fn nix_build(args: &[&str], impure: bool, tx: &Sender<Event>) -> Option<PathBuf>
             None
         }
     }
+}
+
+fn nix_build(args: &[&str], impure: bool, tx: &Sender<Event>) -> Option<PathBuf> {
+    run_builder(
+        process::Command::new("nix")
+            .arg("build")
+            .args(impure.then_some("--impure"))
+            .args(["--no-link", "--print-out-paths"])
+            .args(args),
+        "nix build",
+        tx,
+    )
+}
+
+fn nix_build_file(file: &Path, attr: Option<&str>, tx: &Sender<Event>) -> Option<PathBuf> {
+    run_builder(
+        process::Command::new("nix-build")
+            .arg(file)
+            .args(attr.iter().flat_map(|a| ["-A", a]))
+            .arg("--no-out-link"),
+        "nix-build",
+        tx,
+    )
 }
 
 fn stream_reader<R: Read>(reader: R, tx: &Sender<Event>) -> bool {

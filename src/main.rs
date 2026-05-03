@@ -28,31 +28,39 @@ use ui::Ui;
 #[command(about = "nix-result-checks TUI report viewer")]
 struct Args {
     /// Evaluate a flake and watch for changes.
-    #[arg(long)]
+    #[arg(short = 'F', long)]
     flake: Option<String>,
 
     /// Evaluate a Nix expression and watch for changes.
-    #[arg(long)]
+    #[arg(short, long)]
     expr: Option<String>,
 
+    /// Evaluate a Nix file (uses nix-build, no nix-command required).
+    #[arg(short, long, conflicts_with_all = ["flake", "expr"])]
+    file: Option<PathBuf>,
+
+    /// Attribute to build from --file.
+    #[arg(short = 'A', long, requires = "file")]
+    attr: Option<String>,
+
     /// Allow impure Nix evaluation (passed to nix build for --expr).
-    #[arg(long, requires = "expr")]
+    #[arg(short, long, requires = "expr")]
     impure: bool,
 
     /// Re-stream the report whenever the file changes.
-    #[arg(long)]
+    #[arg(short, long)]
     watch: bool,
 
     /// Keymap preset to use.
-    #[arg(long, value_enum)]
+    #[arg(short, long, value_enum)]
     keymap: Option<PresetName>,
 
     /// Path to a JSON config file.
-    #[arg(long)]
+    #[arg(short, long)]
     config: Option<PathBuf>,
 
     /// Path to a JSON report file, or - for stdin.
-    #[arg(required_unless_present_any = ["flake", "expr"])]
+    #[arg(required_unless_present_any = ["flake", "expr", "file"])]
     report: Option<PathBuf>,
 }
 
@@ -83,6 +91,16 @@ fn main() -> anyhow::Result<()> {
         source = Source::Expr {
             expr,
             impure: args.impure,
+        };
+        watch_mode = if args.watch {
+            WatchMode::Dir
+        } else {
+            WatchMode::None
+        };
+    } else if let Some(file) = args.file {
+        source = Source::NixFile {
+            file,
+            attr: args.attr,
         };
         watch_mode = if args.watch {
             WatchMode::Dir
@@ -125,15 +143,22 @@ fn run(
     keymap: Keymap,
     watch_mode: WatchMode,
 ) -> anyhow::Result<()> {
-    let _watcher = match watch_mode {
-        WatchMode::Dir => Some(input::watcher::start_dir(tx.clone())?),
-        WatchMode::File(ref path) => Some(input::watcher::start(path, tx.clone())?),
-        WatchMode::None => None,
-    };
-
     let mut renderer = Renderer::new()?;
     let mut app = App::new();
-    let mut ui = Ui::new(tx);
+    let mut ui = Ui::new(tx.clone());
+
+    let _watcher = match watch_mode {
+        WatchMode::Dir => {
+            let (w, count) = input::watcher::start_dir(tx)?;
+            ui.watch_count = Some(count);
+            Some(w)
+        }
+        WatchMode::File(ref path) => Some(input::watcher::start(path, tx)?),
+        WatchMode::None => {
+            drop(tx);
+            None
+        }
+    };
 
     renderer.clear();
     renderer.draw(&app, &mut ui)?;
@@ -149,11 +174,22 @@ fn run(
                 }
             }
             Event::Done => {
+                let selected_name = ui.selected.and_then(|i| app.order.get(i)).cloned();
+                let old_idx = ui.selected;
                 app.prune();
                 app.bump_generation();
-                ui.selected = match app.order.len() {
-                    0 => None,
-                    n => ui.selected.map(|i| i.min(n - 1)),
+                ui.rebuilding = false;
+                ui.selected = if app.order.is_empty() {
+                    None
+                } else if let Some(name) = selected_name {
+                    Some(
+                        app.order
+                            .iter()
+                            .position(|n| n == &name)
+                            .unwrap_or_else(|| old_idx.unwrap_or(0).min(app.order.len() - 1)),
+                    )
+                } else {
+                    None
                 };
             }
             Event::Error(e) => {
@@ -161,7 +197,7 @@ fn run(
             }
             Event::Reload => {
                 app.bump_generation();
-                ui.reset();
+                ui.rebuilding = true;
                 let _ = ingest_tx.send(());
             }
             ref event => ui.handle(event, &app, &keymap),
