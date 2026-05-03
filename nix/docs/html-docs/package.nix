@@ -59,7 +59,9 @@ runCommand "html-docs"
     cp ${bookToml} book.toml
     cp ${summary} src/SUMMARY.md
     ${lib.concatMapStrings (name: nixdocPage "helpers/${name}" helpers.${name}) (lib.attrNames helpers)}
-    ${lib.concatMapStrings (name: nixdocPage "generators/${name}" generators.${name}) (lib.attrNames generators)}
+    ${lib.concatMapStrings (name: nixdocPage "generators/${name}" generators.${name}) (
+      lib.attrNames generators
+    )}
     cp ${options-doc} src/options.md
     mdbook build -d $out
   ''

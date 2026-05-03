@@ -50,8 +50,14 @@ let
   failures = lib.debug.runTests tests;
   failureCount = builtins.length failures;
   formatFailure =
-    { name, expected, result }:
-    "FAIL: ${name}\n  expected: ${lib.generators.toPretty { } expected}\n  got:      ${lib.generators.toPretty { } result}";
+    {
+      name,
+      expected,
+      result,
+    }:
+    "FAIL: ${name}\n  expected: ${lib.generators.toPretty { } expected}\n  got:      ${
+      lib.generators.toPretty { } result
+    }";
   report = lib.concatMapStringsSep "\n" formatFailure failures;
   failed = failureCount > 0;
   stdout = lib.optionalString failed "${report}\n";

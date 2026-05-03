@@ -28,11 +28,7 @@
           apply =
             x:
             lib.mapAttrs (
-              name: check:
-              if lib.elem name cfg.skipChecks then
-                pkgs.resultChecks.mkSkip check
-              else
-                check
+              name: check: if lib.elem name cfg.skipChecks then pkgs.resultChecks.mkSkip check else check
             ) x;
         };
 
@@ -89,24 +85,22 @@
         checks = lib.mkIf cfg.enableFlakeChecks (
           lib.mapAttrs (
             name: resultCheck:
-            pkgs.runCommand "check-${name}"
-              { }
-              ''
-                exitCode=$(cat ${resultCheck.exitCode})
+            pkgs.runCommand "check-${name}" { } ''
+              exitCode=$(cat ${resultCheck.exitCode})
 
-                echo "Check '${name}' exit code: $exitCode"
-                echo ""
-                echo "stdout:"
-                cat ${resultCheck.stdout}
-                echo "stderr:"
-                cat ${resultCheck.stderr}
+              echo "Check '${name}' exit code: $exitCode"
+              echo ""
+              echo "stdout:"
+              cat ${resultCheck.stdout}
+              echo "stderr:"
+              cat ${resultCheck.stderr}
 
-                if [ "$exitCode" -ne 0 ]; then
-                  exit "$exitCode"
-                fi
+              if [ "$exitCode" -ne 0 ]; then
+                exit "$exitCode"
+              fi
 
-                install -D ${cfg.reportGenerator { "${name}" = resultCheck; }} $out
-              ''
+              install -D ${cfg.reportGenerator { "${name}" = resultCheck; }} $out
+            ''
           ) (lib.filterAttrs (_name: check: !(check.passthru.skip or false)) cfg.checks)
         );
       };

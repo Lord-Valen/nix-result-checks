@@ -4,7 +4,12 @@
 
 {
   perSystem =
-    { config, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     {
       resultChecks.checks =
         let
@@ -28,11 +33,15 @@
           nixfmt =
             mkResult "nixfmt"
               {
-                nativeBuildInputs = [ pkgs.nixfmt pkgs.findutils ];
+                nativeBuildInputs = [
+                  pkgs.nixfmt
+                  pkgs.findutils
+                ];
               }
               ''
-                find ${../../../nix} -name '*.nix' -exec nixfmt --check {} +
-                nixfmt --check ${../../../flake.nix}
+                nixfmt --check \
+                  $(find ${../../../nix} -name '*.nix') \
+                  ${../../../flake.nix}
               '';
         };
     };
