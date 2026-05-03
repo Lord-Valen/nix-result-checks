@@ -75,7 +75,7 @@ impl Ui {
             stderr_scroll: 0,
             stderr_h_scroll: 0,
             toast: None,
-            rebuilding: false,
+            rebuilding: true,
             watch_count: None,
             stdout_bounds: PanelBounds::default(),
             stderr_bounds: PanelBounds::default(),

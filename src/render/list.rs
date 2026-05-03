@@ -79,7 +79,7 @@ mod tests {
 
 pub fn render_list(frame: &mut Frame, app: &App, ui: &Ui, area: Rect) {
     let status = if ui.rebuilding {
-        " rebuilding… ".to_string()
+        " loading… ".to_string()
     } else if let Some(n) = ui.watch_count {
         format!(" watching {n} files ")
     } else {
