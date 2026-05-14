@@ -30,9 +30,9 @@ in
         ];
       };
 
-      packages.options-doc = pkgs.resultChecks.options-doc;
-      packages.htmlDocs = pkgs.resultChecks.html-docs;
-      packages.manPages = pkgs.resultChecks.man-pages;
+      packages.docs-options = pkgs.resultChecks.docs-options;
+      packages.docs-mdbook = pkgs.resultChecks.docs-mdbook;
+      packages.docs-man = pkgs.resultChecks.docs-man;
       packages.checks-report = config.resultChecks.report;
       packages.nrc = pkgs.resultChecks.nrc;
       apps.run-checks = {

@@ -5,7 +5,7 @@
 {
   lib,
   nixdoc,
-  options-doc,
+  docs-options,
   pandoc,
   runCommand,
 }:
@@ -37,7 +37,7 @@ let
       > $out/share/man/man${toString section}/${name}.${toString section}
   '';
 in
-runCommand "man-pages"
+runCommand "docs-man"
   {
     nativeBuildInputs = [
       nixdoc
@@ -52,7 +52,7 @@ runCommand "man-pages"
       --shift-heading-level-by=-1 \
       --metadata title="nix-result-checks" \
       --metadata section="5" \
-      ${options-doc} \
+      ${docs-options} \
       | sed -e '/^\.IP$/{N; s/^\.IP\n\.EX$/.EX/}' \
       > $out/share/man/man5/nix-result-checks.5
   ''
