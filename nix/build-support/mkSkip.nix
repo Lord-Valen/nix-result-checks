@@ -19,12 +19,12 @@
 
   drv
   : A result check derivation produced by `mkResult`, `mkResultWith`,
-    `mkResultSnapshot`, or `mkEvalTests`.
+    `mkSnapshot`, or `mkEval`.
 
   # Example
 
   ```nix
-  mkResult "my-check" { } "echo hello" |> mkSkip
+  mkResult "my-check" "echo hello" |> mkSkip
   ```
 */
 { }:

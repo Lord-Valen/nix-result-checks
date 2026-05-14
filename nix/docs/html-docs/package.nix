@@ -22,8 +22,8 @@ let
     - [Build Support]()
       - [mkResult](helpers/mkResult.md)
       - [mkResultWith](helpers/mkResultWith.md)
-      - [mkResultSnapshot](helpers/mkResultSnapshot.md)
-      - [mkEvalTests](helpers/mkEvalTests.md)
+      - [mkSnapshot](helpers/mkSnapshot.md)
+      - [mkEval](helpers/mkEval.md)
       - [mkSkip](helpers/mkSkip.md)
     - [Generators]()
       - [json](generators/json.md)
@@ -34,8 +34,8 @@ let
     mkSkip = ../../build-support/mkSkip.nix;
     mkResultWith = ../../build-support/mkResultWith.nix;
     mkResult = ../../build-support/mkResult.nix;
-    mkResultSnapshot = ../../build-support/mkResultSnapshot.nix;
-    mkEvalTests = ../../build-support/mkEvalTests.nix;
+    mkSnapshot = ../../build-support/mkSnapshot.nix;
+    mkEval = ../../build-support/mkEval.nix;
   };
   generators = {
     json = ../../generators/json/package.nix;

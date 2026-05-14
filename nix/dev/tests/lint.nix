@@ -20,29 +20,22 @@
             let
               src = config.packages.nrc-dev.src;
             in
-            mkResult "rustfmt"
-              {
-                nativeBuildInputs = [
-                  (pkgs.rust-bin.fromRustupToolchainFile ../../../rust-toolchain.toml)
-                ];
-              }
-              ''
-                cargo fmt --manifest-path ${src}/Cargo.toml -- --check
-              '';
+            (mkResult "rustfmt" "cargo fmt --manifest-path ${src}/Cargo.toml -- --check").overrideAttrs {
+              nativeBuildInputs = [
+                (pkgs.rust-bin.fromRustupToolchainFile ../../../rust-toolchain.toml)
+              ];
+            };
 
-          nixfmt =
-            mkResult "nixfmt"
-              {
-                nativeBuildInputs = [
-                  pkgs.nixfmt
-                  pkgs.findutils
-                ];
-              }
-              ''
-                nixfmt --check \
-                  $(find ${../../../nix} -name '*.nix') \
-                  ${../../../flake.nix}
-              '';
+          nixfmt = (mkResult "nixfmt" ''
+            nixfmt --check \
+              $(find ${../../../nix} -name '*.nix') \
+              ${../../../flake.nix}
+          '').overrideAttrs {
+            nativeBuildInputs = [
+              pkgs.nixfmt
+              pkgs.findutils
+            ];
+          };
         };
     };
 }

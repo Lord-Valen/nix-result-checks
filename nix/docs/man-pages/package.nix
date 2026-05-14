@@ -14,8 +14,8 @@ let
     mkSkip = ../../build-support/mkSkip.nix;
     mkResultWith = ../../build-support/mkResultWith.nix;
     mkResult = ../../build-support/mkResult.nix;
-    mkResultSnapshot = ../../build-support/mkResultSnapshot.nix;
-    mkEvalTests = ../../build-support/mkEvalTests.nix;
+    mkSnapshot = ../../build-support/mkSnapshot.nix;
+    mkEval = ../../build-support/mkEval.nix;
   };
   generators = {
     json = ../../generators/json/package.nix;

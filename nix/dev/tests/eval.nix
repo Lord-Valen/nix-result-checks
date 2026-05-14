@@ -8,11 +8,11 @@
     {
       resultChecks.checks =
         let
-          inherit (pkgs.resultChecks) mkEvalTests mkResultSnapshot;
+          inherit (pkgs.resultChecks) mkEval mkSnapshot mkSkip;
         in
         {
-          eval-passing = mkResultSnapshot "eval-passing" { } {
-            resultCheck = mkEvalTests "eval-passing" { } {
+          eval-passing = mkSnapshot "eval-passing" {
+            resultCheck = mkEval "eval-passing" {
               testAddition = {
                 expr = 1 + 1;
                 expected = 2;
@@ -27,8 +27,8 @@
             stderr = "";
           };
 
-          eval-failing = mkResultSnapshot "eval-failing" { } {
-            resultCheck = mkEvalTests "eval-failing" { } {
+          eval-failing = mkSnapshot "eval-failing" {
+            resultCheck = mkEval "eval-failing" {
               testWrong = {
                 expr = 1 + 1;
                 expected = 3;
@@ -45,8 +45,8 @@
             '';
           };
 
-          eval-mixed = mkResultSnapshot "eval-mixed" { } {
-            resultCheck = mkEvalTests "eval-mixed" { } {
+          eval-mixed = mkSnapshot "eval-mixed" {
+            resultCheck = mkEval "eval-mixed" {
               testPass = {
                 expr = true;
                 expected = true;
@@ -67,13 +67,15 @@
             '';
           };
 
-          eval-skip = mkResultSnapshot "eval-skip" { } {
-            resultCheck = mkEvalTests "eval-skip" { passthru.skip = true; } {
-              testSkipped = {
-                expr = 1;
-                expected = 2;
-              };
-            };
+          eval-skip = mkSnapshot "eval-skip" {
+            resultCheck =
+              mkEval "eval-skip" {
+                testSkipped = {
+                  expr = 1;
+                  expected = 2;
+                };
+              }
+              |> mkSkip;
             exitCode = "";
             stdout = "";
             stderr = "";

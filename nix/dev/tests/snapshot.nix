@@ -8,19 +8,19 @@
     {
       resultChecks.checks =
         let
-          inherit (pkgs.resultChecks) mkResult mkResultSnapshot;
+          inherit (pkgs.resultChecks) mkResult mkSnapshot;
         in
         {
-          snapshot-exit-code-only = mkResultSnapshot "snapshot-exit-code-only" { } {
-            resultCheck = mkResult "snapshot-exit-code-only-actual" { } ''
+          snapshot-exit-code-only = mkSnapshot "snapshot-exit-code-only" {
+            resultCheck = mkResult "snapshot-exit-code-only-actual" ''
               echo "some output"
               exit 42
             '';
             exitCode = "42";
           };
 
-          snapshot-stdout-only = mkResultSnapshot "snapshot-stdout-only" { } {
-            resultCheck = mkResult "snapshot-stdout-only-actual" { } ''
+          snapshot-stdout-only = mkSnapshot "snapshot-stdout-only" {
+            resultCheck = mkResult "snapshot-stdout-only-actual" ''
               echo "expected stdout line"
               exit 1
             '';
@@ -29,8 +29,8 @@
             '';
           };
 
-          snapshot-stderr-only = mkResultSnapshot "snapshot-stderr-only" { } {
-            resultCheck = mkResult "snapshot-stderr-only-actual" { } ''
+          snapshot-stderr-only = mkSnapshot "snapshot-stderr-only" {
+            resultCheck = mkResult "snapshot-stderr-only-actual" ''
               echo "expected stderr line" >&2
               exit 1
             '';
@@ -39,9 +39,9 @@
             '';
           };
 
-          snapshot-exit-code-mismatch = mkResultSnapshot "snapshot-exit-code-mismatch" { } {
-            resultCheck = mkResultSnapshot "snapshot-exit-code-mismatch-actual" { } {
-              resultCheck = mkResult "snapshot-exit-code-mismatch-inner" { } ''
+          snapshot-exit-code-mismatch = mkSnapshot "snapshot-exit-code-mismatch" {
+            resultCheck = mkSnapshot "snapshot-exit-code-mismatch-actual" {
+              resultCheck = mkResult "snapshot-exit-code-mismatch-inner" ''
                 echo "actual output"
                 exit 0
               '';
@@ -53,9 +53,9 @@
             '';
           };
 
-          snapshot-stdout-mismatch = mkResultSnapshot "snapshot-stdout-mismatch" { } {
-            resultCheck = mkResultSnapshot "snapshot-stdout-mismatch-actual" { } {
-              resultCheck = mkResult "snapshot-stdout-mismatch-inner" { } ''
+          snapshot-stdout-mismatch = mkSnapshot "snapshot-stdout-mismatch" {
+            resultCheck = mkSnapshot "snapshot-stdout-mismatch-actual" {
+              resultCheck = mkResult "snapshot-stdout-mismatch-inner" ''
                 echo "actual output"
                 exit 0
               '';
@@ -73,9 +73,9 @@
             '';
           };
 
-          snapshot-stderr-mismatch = mkResultSnapshot "snapshot-stderr-mismatch" { } {
-            resultCheck = mkResultSnapshot "snapshot-stderr-mismatch-actual" { } {
-              resultCheck = mkResult "snapshot-stderr-mismatch-inner" { } ''
+          snapshot-stderr-mismatch = mkSnapshot "snapshot-stderr-mismatch" {
+            resultCheck = mkSnapshot "snapshot-stderr-mismatch-actual" {
+              resultCheck = mkResult "snapshot-stderr-mismatch-inner" ''
                 echo "actual output" >&2
                 exit 0
               '';

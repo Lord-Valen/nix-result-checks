@@ -8,8 +8,11 @@
     {
       resultChecks.checks =
         let
-          inherit (pkgs.resultChecks) mkResult mkResultSnapshot;
-          test-passing-actual = mkResult "test-passing-actual" { } ''
+          inherit (pkgs.resultChecks) mkResult mkSnapshot;
+          inherit (config.resultChecks) checks;
+        in
+        {
+          test-passing-actual = mkResult "test-passing-actual" ''
             echo "Starting test suite..." >&2
             echo "Running unit tests..." >&2
             echo "Test 1: PASS"
@@ -17,10 +20,9 @@
             echo "All tests completed successfully" >&2
             exit 0
           '';
-        in
-        {
-          test-passing = mkResultSnapshot "test-passing" { } {
-            resultCheck = test-passing-actual;
+
+          test-passing = mkSnapshot "test-passing" {
+            resultCheck = checks.test-passing-actual;
             exitCode = "0";
             stdout = ''
               Test 1: PASS
@@ -33,8 +35,8 @@
             '';
           };
 
-          test-failing = mkResultSnapshot "test-failing" { } {
-            resultCheck = mkResult "test-failing-actual" { } ''
+          test-failing = mkSnapshot "test-failing" {
+            resultCheck = mkResult "test-failing-actual" ''
               echo "Starting validation checks..." >&2
               echo "Checking configuration..." >&2
               echo "Warning: Deprecated option detected" >&2
