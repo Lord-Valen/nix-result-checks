@@ -48,6 +48,4 @@
     }
   ```
 */
-{ mkSnapshotWith }:
-name: snapshot:
-mkSnapshotWith ({ inherit name; } // snapshot)
+{ mkSnapshotWith }: name: snapshot: mkSnapshotWith ({ inherit name; } // snapshot)

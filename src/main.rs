@@ -9,6 +9,7 @@ mod config;
 mod event;
 mod input;
 mod render;
+mod stream;
 mod ui;
 
 use std::path::PathBuf;
@@ -17,10 +18,10 @@ use std::thread;
 
 use clap::Parser;
 
-use app::App;
 use config::{Config, Keymap, PresetName};
 use event::Event;
 use input::ingest::Source;
+use input::WatchMode;
 use render::Renderer;
 use ui::Ui;
 
@@ -51,6 +52,11 @@ struct Args {
     #[arg(short, long)]
     watch: bool,
 
+    /// Emit check results as newline-delimited JSON, one entry per line.
+    /// Only changed entries are emitted on reload. Exits 1 if any check failed.
+    #[arg(short, long)]
+    stream: bool,
+
     /// Keymap preset to use.
     #[arg(short, long, value_enum)]
     keymap: Option<PresetName>,
@@ -64,10 +70,49 @@ struct Args {
     report: Option<PathBuf>,
 }
 
-enum WatchMode {
-    None,
-    Dir,
-    File(PathBuf),
+fn resolve_source(args: Args) -> anyhow::Result<(Source, WatchMode)> {
+    let dir_watch = || {
+        if args.watch {
+            WatchMode::Dir
+        } else {
+            WatchMode::None
+        }
+    };
+    if let Some(attr) = args.flake {
+        Ok((Source::Flake(attr), dir_watch()))
+    } else if let Some(expr) = args.expr {
+        Ok((
+            Source::Expr {
+                expr,
+                impure: args.impure,
+            },
+            dir_watch(),
+        ))
+    } else if let Some(file) = args.file {
+        Ok((
+            Source::NixFile {
+                file,
+                attr: args.attr,
+            },
+            dir_watch(),
+        ))
+    } else if let Some(path) = args.report {
+        if path.as_os_str() == "-" {
+            if args.watch {
+                anyhow::bail!("--watch cannot be used with stdin");
+            }
+            Ok((Source::Stdin, WatchMode::None))
+        } else {
+            let watch_mode = if args.watch {
+                WatchMode::File(path.clone())
+            } else {
+                WatchMode::None
+            };
+            Ok((Source::File(path), watch_mode))
+        }
+    } else {
+        unreachable!()
+    }
 }
 
 fn main() -> anyhow::Result<()> {
@@ -77,62 +122,20 @@ fn main() -> anyhow::Result<()> {
 
     let config = Config::load(args.config.as_deref())?;
     let keymap = Config::resolve(config, args.keymap);
+    let stream = args.stream;
 
-    let source: Source;
-    let watch_mode: WatchMode;
-    if let Some(attr) = args.flake {
-        source = Source::Flake(attr);
-        watch_mode = if args.watch {
-            WatchMode::Dir
-        } else {
-            WatchMode::None
-        };
-    } else if let Some(expr) = args.expr {
-        source = Source::Expr {
-            expr,
-            impure: args.impure,
-        };
-        watch_mode = if args.watch {
-            WatchMode::Dir
-        } else {
-            WatchMode::None
-        };
-    } else if let Some(file) = args.file {
-        source = Source::NixFile {
-            file,
-            attr: args.attr,
-        };
-        watch_mode = if args.watch {
-            WatchMode::Dir
-        } else {
-            WatchMode::None
-        };
-    } else if let Some(ref path) = args.report {
-        if path.as_os_str() == "-" {
-            if args.watch {
-                anyhow::bail!("--watch cannot be used with stdin");
-            }
-            source = Source::Stdin;
-            watch_mode = WatchMode::None;
-        } else {
-            source = Source::File(path.clone());
-            watch_mode = if args.watch {
-                WatchMode::File(path.clone())
-            } else {
-                WatchMode::None
-            };
-        }
-    } else {
-        unreachable!()
-    }
+    let (source, watch_mode) = resolve_source(args)?;
 
     let event_tx = tx.clone();
     thread::spawn(move || input::ingest::run(source, event_tx, ingest_rx));
 
-    let input_tx = tx.clone();
-    thread::spawn(move || input::terminal::run(input_tx));
-
-    run(rx, tx, ingest_tx, keymap, watch_mode)
+    if stream {
+        stream::run(rx, tx, ingest_tx, watch_mode)
+    } else {
+        let input_tx = tx.clone();
+        thread::spawn(move || input::terminal::run(input_tx));
+        run(rx, tx, ingest_tx, keymap, watch_mode)
+    }
 }
 
 #[allow(clippy::needless_pass_by_value)]
@@ -144,7 +147,7 @@ fn run(
     watch_mode: WatchMode,
 ) -> anyhow::Result<()> {
     let mut renderer = Renderer::new()?;
-    let mut app = App::new();
+    let mut app = app::App::new();
     let mut ui = Ui::new(tx.clone());
 
     let _watcher = match watch_mode {

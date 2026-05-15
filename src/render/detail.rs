@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: MIT
 
 use ratatui::{
-    Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::Stylize,
     text::Text,
     widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
+    Frame,
 };
 
 use super::PanelBounds;

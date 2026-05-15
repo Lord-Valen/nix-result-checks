@@ -7,8 +7,8 @@ use std::fmt;
 use std::str::FromStr;
 
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use serde::Deserialize;
 use serde::de;
+use serde::Deserialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct KeyCombo {

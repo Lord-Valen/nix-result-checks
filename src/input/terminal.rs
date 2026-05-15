@@ -4,7 +4,7 @@
 
 use std::sync::mpsc;
 
-use ratatui::crossterm::event::{Event as TermEvent, read as read_event};
+use ratatui::crossterm::event::{read as read_event, Event as TermEvent};
 
 use crate::event::Event;
 

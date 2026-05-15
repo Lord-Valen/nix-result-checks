@@ -51,7 +51,10 @@ lib.extendMkDerivation {
   ];
   extendDrvArgs =
     _finalAttrs:
-    { command ? null, ... }@args:
+    {
+      command ? null,
+      ...
+    }@args:
     {
       outputs = [
         "out"
@@ -59,16 +62,17 @@ lib.extendMkDerivation {
         "stderr"
         "exitCode"
       ];
-      buildCommand = args.buildCommand or ''
-        set +e
-        (
-          ${command}
-        ) > "$stdout" 2> "$stderr"
-        printf '%s' "$?" > "$exitCode"
-        set -e
-        touch "$out"
-        exit 0
-      '';
+      buildCommand =
+        args.buildCommand or ''
+          set +e
+          (
+            ${command}
+          ) > "$stdout" 2> "$stderr"
+          printf '%s' "$?" > "$exitCode"
+          set -e
+          touch "$out"
+          exit 0
+        '';
     };
   transformDrv = drv: if drv.passthru.skip or false then mkSkip drv else drv;
 }

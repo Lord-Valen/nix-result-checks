@@ -5,3 +5,5 @@
 pub mod ingest;
 pub mod terminal;
 pub mod watcher;
+
+pub use watcher::WatchMode;

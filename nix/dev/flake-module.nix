@@ -39,7 +39,7 @@ in
         type = "app";
         program = toString (
           pkgs.writeShellScript "run-checks" ''
-            cat ${config.resultChecks.report}
+            ${config.packages.nrc-dev}/bin/nrc --stream --watch --flake .#checks-report
           ''
         );
       };

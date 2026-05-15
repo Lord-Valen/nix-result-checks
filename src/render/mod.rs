@@ -6,17 +6,17 @@ mod detail;
 mod list;
 pub(crate) mod toast;
 
-use std::io::{self, Stdout, stdout};
+use std::io::{self, stdout, Stdout};
 
 use ratatui::{
-    Frame, Terminal,
     backend::CrosstermBackend,
     crossterm::{
         event::{DisableMouseCapture, EnableMouseCapture},
         execute,
-        terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     },
     layout::{Constraint, Direction, Layout},
+    Frame, Terminal,
 };
 
 use crate::app::App;

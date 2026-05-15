@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: MIT
 
 use ratatui::{
-    Frame,
     layout::Rect,
     style::Style,
     widgets::{Block, Borders, List, ListItem, ListState, Padding},
+    Frame,
 };
 
 use crate::app::App;
@@ -14,8 +14,8 @@ use crate::ui::Ui;
 
 #[cfg(test)]
 mod tests {
-    use ratatui::Terminal;
     use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
 
     use crate::app::{App, CheckEntry, EntryKind, Status};
     use crate::render::render;

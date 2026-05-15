@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use ratatui::style::Color;
 use serde::Deserialize;
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Status {
     Pass,
@@ -33,7 +33,7 @@ impl Status {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, serde::Serialize)]
 pub struct CheckEntry {
     pub name: String,
     pub status: Status,
@@ -44,7 +44,7 @@ pub struct CheckEntry {
     pub stderr: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum EntryKind {
     Result,

@@ -3,20 +3,20 @@
 // SPDX-License-Identifier: MIT
 
 use ratatui::{
-    Frame,
     layout::Rect,
     style::{Color, Stylize},
     text::Text,
     widgets::{Block, Borders, Clear, Padding, Paragraph, Wrap},
+    Frame,
 };
 
 use crate::ui::clamp_u16;
 
 #[cfg(test)]
 mod tests {
-    use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use ratatui::layout::Rect;
+    use ratatui::Terminal;
 
     use super::render_toast;
 

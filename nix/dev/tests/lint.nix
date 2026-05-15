@@ -26,16 +26,18 @@
               ];
             };
 
-          nixfmt = (mkResult "nixfmt" ''
-            nixfmt --check \
-              $(find ${../../../nix} -name '*.nix') \
-              ${../../../flake.nix}
-          '').overrideAttrs {
-            nativeBuildInputs = [
-              pkgs.nixfmt
-              pkgs.findutils
-            ];
-          };
+          nixfmt =
+            (mkResult "nixfmt" ''
+              nixfmt --check \
+                $(find ${../../../nix} -name '*.nix') \
+                ${../../../flake.nix}
+            '').overrideAttrs
+              {
+                nativeBuildInputs = [
+                  pkgs.nixfmt
+                  pkgs.findutils
+                ];
+              };
         };
     };
 }
