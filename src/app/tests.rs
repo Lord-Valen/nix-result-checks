@@ -1,22 +1,23 @@
 use super::*;
 
-fn flat(name: &str) -> CheckEntry {
+fn entry(name: &str, status: Status, suite: Option<&str>) -> CheckEntry {
     CheckEntry {
         name: name.to_string(),
-        status: Status::Pass,
+        status,
         kind: EntryKind::Result,
         exit_code: "0".to_string(),
         stdout: String::new(),
         stderr: String::new(),
-        suite: None,
+        suite: suite.map(str::to_owned),
     }
 }
 
+fn flat(name: &str) -> CheckEntry {
+    entry(name, Status::Pass, None)
+}
+
 fn suite_check(suite: &str, name: &str) -> CheckEntry {
-    CheckEntry {
-        suite: Some(suite.to_string()),
-        ..flat(name)
-    }
+    entry(name, Status::Pass, Some(suite))
 }
 
 #[test]
@@ -154,4 +155,25 @@ fn toggle_suite_unfolds() {
     assert!(app.folded_suites.contains("db"));
     app.toggle_suite("db");
     assert!(!app.folded_suites.contains("db"));
+}
+
+// -- Counts --
+
+#[test]
+fn counts_global() {
+    let mut app = App::new();
+    app.upsert(entry("a", Status::Pass, None));
+    app.upsert(entry("b", Status::Pass, None));
+    app.upsert(entry("c", Status::Fail, None));
+    app.upsert(entry("d", Status::Skip, None));
+    assert_eq!(app.counts(), (2, 1, 1));
+}
+
+#[test]
+fn suite_counts_per_suite() {
+    let mut app = App::new();
+    app.upsert(entry("schema", Status::Pass, Some("db")));
+    app.upsert(entry("migration", Status::Fail, Some("db")));
+    app.upsert(entry("lint", Status::Pass, None));
+    assert_eq!(app.suite_counts("db"), (1, 1, 0));
 }

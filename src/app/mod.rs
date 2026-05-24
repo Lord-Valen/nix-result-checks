@@ -188,6 +188,31 @@ impl App {
         items
     }
 
+    pub fn counts(&self) -> (usize, usize, usize) {
+        self.count_keys(self.all_keys())
+    }
+
+    pub fn suite_counts(&self, name: &str) -> (usize, usize, usize) {
+        let keys = self.order.iter().find_map(|item| match item {
+            OrderItem::Suite { name: n, checks } if n == name => Some(checks.as_slice()),
+            _ => None,
+        });
+        self.count_keys(keys.unwrap_or(&[]).iter())
+    }
+
+    fn count_keys<'a>(&self, keys: impl Iterator<Item = &'a String>) -> (usize, usize, usize) {
+        let (mut pass, mut fail, mut skip) = (0, 0, 0);
+        for key in keys {
+            match self.entries.get(key).map(|e| &e.status) {
+                Some(Status::Pass) => pass += 1,
+                Some(Status::Fail) => fail += 1,
+                Some(Status::Skip) => skip += 1,
+                None => {}
+            }
+        }
+        (pass, fail, skip)
+    }
+
     pub fn toggle_suite(&mut self, name: &str) {
         if self.folded_suites.contains(name) {
             self.folded_suites.remove(name);

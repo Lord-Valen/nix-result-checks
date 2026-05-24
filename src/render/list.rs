@@ -4,12 +4,13 @@
 
 use ratatui::{
     Frame,
-    layout::Rect,
-    style::{Modifier, Style},
+    layout::{Alignment, Rect},
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, ListState, Padding},
 };
 
-use crate::app::{App, OrderItem, VisibleItem};
+use crate::app::{App, VisibleItem};
 use crate::ui::Ui;
 
 #[cfg(test)]
@@ -80,6 +81,28 @@ mod tests {
     }
 }
 
+fn count_spans(pass: usize, fail: usize, skip: usize, selected: bool) -> Vec<Span<'static>> {
+    let (ps, fs, ss) = if selected {
+        (Style::new().bg(Color::Green), Style::new().bg(Color::Red), Style::new().bg(Color::DarkGray))
+    } else {
+        (Style::new().fg(Color::Green), Style::new().fg(Color::Red), Style::new().fg(Color::DarkGray))
+    };
+    vec![
+        Span::styled(format!("✓{pass}"), ps),
+        Span::raw(" "),
+        Span::styled(format!("✗{fail}"), fs),
+        Span::raw(" "),
+        Span::styled(format!("·{skip}"), ss),
+    ]
+}
+
+fn counts_line(pass: usize, fail: usize, skip: usize) -> Line<'static> {
+    let mut spans = vec![Span::raw(" ")];
+    spans.extend(count_spans(pass, fail, skip, false));
+    spans.push(Span::raw(" "));
+    Line::from(spans)
+}
+
 pub fn render_list(frame: &mut Frame, app: &App, ui: &Ui, area: Rect) {
     let status = if ui.rebuilding {
         " loading… ".to_string()
@@ -88,40 +111,46 @@ pub fn render_list(frame: &mut Frame, app: &App, ui: &Ui, area: Rect) {
     } else {
         String::new()
     };
+    let (pass, fail, skip) = app.counts();
     let block = Block::default()
         .borders(Borders::ALL)
         .padding(Padding::horizontal(1))
         .title("nix-result-checks")
-        .title_bottom(status.as_str());
+        .title_bottom(status.as_str())
+        .title_bottom(counts_line(pass, fail, skip).alignment(Alignment::Right));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
     let items: Vec<ListItem> = app
         .visible_items()
         .into_iter()
-        .map(|item| match item {
-            VisibleItem::Suite(name) => {
-                let folded = app.folded_suites.contains(&name);
-                let count = app
-                    .order
-                    .iter()
-                    .find_map(|o| match o {
-                        OrderItem::Suite { name: n, checks } if n == &name => Some(checks.len()),
-                        _ => None,
-                    })
-                    .unwrap_or(0);
-                let line = if folded {
-                    format!("▶ {name} ({count})")
-                } else {
-                    format!("▼ {name}")
-                };
-                ListItem::new(line).style(Style::new().add_modifier(Modifier::BOLD))
-            }
-            VisibleItem::Check(key) => {
-                let entry = app.entries.get(&key).expect("visible item has entry");
-                let indent = if entry.suite.is_some() { "  " } else { "" };
-                let line = format!("{indent}{} {}", entry.status.symbol(), entry.name);
-                ListItem::new(line).style(Style::new().fg(entry.status.color()))
+        .enumerate()
+        .map(|(idx, item)| {
+            let selected = ui.selected == Some(idx);
+            match item {
+                VisibleItem::Suite(name) => {
+                    let folded = app.folded_suites.contains(&name);
+                    let (pass, fail, skip) = app.suite_counts(&name);
+                    let arrow = if folded { "▶" } else { "▼" };
+                    let mut spans = vec![Span::raw(format!("{arrow} {name} ("))];
+                    spans.extend(count_spans(pass, fail, skip, selected));
+                    spans.push(Span::raw(")"));
+                    let mut style = Style::new().add_modifier(Modifier::BOLD);
+                    if selected {
+                        style = style.add_modifier(Modifier::REVERSED);
+                    }
+                    ListItem::new(Line::from(spans)).style(style)
+                }
+                VisibleItem::Check(key) => {
+                    let entry = app.entries.get(&key).expect("visible item has entry");
+                    let indent = if entry.suite.is_some() { "  " } else { "" };
+                    let line = format!("{indent}{} {}", entry.status.symbol(), entry.name);
+                    let mut style = Style::new().fg(entry.status.color());
+                    if selected {
+                        style = style.add_modifier(Modifier::REVERSED);
+                    }
+                    ListItem::new(line).style(style)
+                }
             }
         })
         .collect();
@@ -130,7 +159,7 @@ pub fn render_list(frame: &mut Frame, app: &App, ui: &Ui, area: Rect) {
     state.select(ui.selected);
 
     frame.render_stateful_widget(
-        List::new(items).highlight_style(Style::new().reversed()),
+        List::new(items),
         inner,
         &mut state,
     );
