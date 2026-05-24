@@ -10,8 +10,8 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
-use keymap::{deserialize_keycombo_map, Commands, KeyCombo};
 pub use keymap::{Command, Keymap};
+use keymap::{Commands, KeyCombo, deserialize_keycombo_map};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, clap::ValueEnum, Deserialize)]
 #[serde(rename_all = "kebab-case")]

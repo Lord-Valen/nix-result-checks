@@ -3,19 +3,19 @@
 // SPDX-License-Identifier: MIT
 
 use ratatui::{
-    layout::Rect,
-    style::Style,
-    widgets::{Block, Borders, List, ListItem, ListState, Padding},
     Frame,
+    layout::Rect,
+    style::{Modifier, Style},
+    widgets::{Block, Borders, List, ListItem, ListState, Padding},
 };
 
-use crate::app::App;
+use crate::app::{App, OrderItem, VisibleItem};
 use crate::ui::Ui;
 
 #[cfg(test)]
 mod tests {
-    use ratatui::backend::TestBackend;
     use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
 
     use crate::app::{App, CheckEntry, EntryKind, Status};
     use crate::render::render;
@@ -29,6 +29,7 @@ mod tests {
             exit_code: "0".to_string(),
             stdout: String::new(),
             stderr: String::new(),
+            suite: None,
         }
     }
 
@@ -94,15 +95,32 @@ pub fn render_list(frame: &mut Frame, app: &App, ui: &Ui, area: Rect) {
     frame.render_widget(block, area);
 
     let items: Vec<ListItem> = app
-        .order
-        .iter()
-        .map(|name| {
-            let entry = app
-                .entries
-                .get(name)
-                .expect("order and entries are in sync");
-            let line = format!("{} {}", entry.status.symbol(), entry.name);
-            ListItem::new(line).style(Style::new().fg(entry.status.color()))
+        .visible_items()
+        .into_iter()
+        .map(|item| match item {
+            VisibleItem::Suite(name) => {
+                let folded = app.folded_suites.contains(&name);
+                let count = app
+                    .order
+                    .iter()
+                    .find_map(|o| match o {
+                        OrderItem::Suite { name: n, checks } if n == &name => Some(checks.len()),
+                        _ => None,
+                    })
+                    .unwrap_or(0);
+                let line = if folded {
+                    format!("▶ {name} ({count})")
+                } else {
+                    format!("▼ {name}")
+                };
+                ListItem::new(line).style(Style::new().add_modifier(Modifier::BOLD))
+            }
+            VisibleItem::Check(key) => {
+                let entry = app.entries.get(&key).expect("visible item has entry");
+                let indent = if entry.suite.is_some() { "  " } else { "" };
+                let line = format!("{indent}{} {}", entry.status.symbol(), entry.name);
+                ListItem::new(line).style(Style::new().fg(entry.status.color()))
+            }
         })
         .collect();
 

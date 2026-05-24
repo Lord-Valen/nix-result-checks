@@ -7,8 +7,8 @@ use std::fmt;
 use std::str::FromStr;
 
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use serde::de;
 use serde::Deserialize;
+use serde::de;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct KeyCombo {
@@ -109,6 +109,9 @@ pub enum Command {
     Reload,
     SelectNext,
     SelectPrev,
+    NextSuite,
+    PrevSuite,
+    ToggleSuite,
     ToggleDetail,
     ToggleFocus,
     ScrollDown,

@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: MIT
 
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::Stylize,
     text::Text,
     widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
-    Frame,
 };
 
 use super::PanelBounds;
@@ -39,19 +39,17 @@ pub fn render_detail(
         width: usize::from(cols[1].width.saturating_sub(2)),
     };
 
-    let Some(idx) = ui.selected else {
+    let Some(key) = &ui.detail_key else {
         return (stdout_bounds, stderr_bounds);
     };
-    let Some(name) = app.order.get(idx) else {
-        return (stdout_bounds, stderr_bounds);
-    };
-    let Some(entry) = app.entries.get(name) else {
+    let Some(entry) = app.entries.get(key) else {
         return (stdout_bounds, stderr_bounds);
     };
 
     let kind_str = match entry.kind {
         EntryKind::Result => "result",
         EntryKind::Snapshot => "snapshot",
+        EntryKind::Eval => "eval",
     };
     let exit_code_str: &str = if entry.exit_code.is_empty() {
         "(none)"

@@ -1,5 +1,5 @@
 ---
-source: tui/src/render/toast.rs
+source: src/render/toast.rs
 expression: "snapshot(\"\", 80, 24)"
 ---
 "                                                                                "
@@ -12,9 +12,9 @@ expression: "snapshot(\"\", 80, 24)"
 "                                                                                "
 "                                                                                "
 "                                                                                "
-"                                      ┌Er┐                                      "
-"                                      │  │                                      "
-"                                      └──┘                                      "
+"                                    ┌Error┐                                     "
+"                                    │     │                                     "
+"                                    └─────┘                                     "
 "                                                                                "
 "                                                                                "
 "                                                                                "

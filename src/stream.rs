@@ -44,7 +44,8 @@ pub fn run(
             }
             Event::Done => {
                 app.prune();
-                for name in &app.order {
+                let keys: Vec<String> = app.all_keys().cloned().collect();
+                for name in &keys {
                     let entry = &app.entries[name];
                     let changed = previous.get(name).map_or(true, |prev| prev != entry);
                     if changed {

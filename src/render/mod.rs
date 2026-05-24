@@ -6,17 +6,17 @@ mod detail;
 mod list;
 pub(crate) mod toast;
 
-use std::io::{self, stdout, Stdout};
+use std::io::{self, Stdout, stdout};
 
 use ratatui::{
+    Frame, Terminal,
     backend::CrosstermBackend,
     crossterm::{
         event::{DisableMouseCapture, EnableMouseCapture},
         execute,
-        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+        terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
     },
     layout::{Constraint, Direction, Layout},
-    Frame, Terminal,
 };
 
 use crate::app::App;
@@ -70,7 +70,7 @@ impl Drop for Renderer {
 
 fn render(frame: &mut Frame, app: &App, ui: &Ui) -> Option<(PanelBounds, PanelBounds)> {
     let area = frame.area();
-    let bounds = if ui.detail_open && ui.selected.is_some() {
+    let bounds = if ui.detail_open && ui.detail_key.is_some() {
         let list_width = Ui::list_panel_width(app);
         let chunks = Layout::default()
             .direction(Direction::Horizontal)

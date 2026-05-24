@@ -20,8 +20,8 @@ use clap::Parser;
 
 use config::{Config, Keymap, PresetName};
 use event::Event;
-use input::ingest::Source;
 use input::WatchMode;
+use input::ingest::Source;
 use render::Renderer;
 use ui::Ui;
 
@@ -177,20 +177,35 @@ fn run(
                 }
             }
             Event::Done => {
-                let selected_name = ui.selected.and_then(|i| app.order.get(i)).cloned();
+                let selected_key = ui.selected.and_then(|i| {
+                    app.visible_items()
+                        .into_iter()
+                        .nth(i)
+                        .and_then(|v| match v {
+                            crate::app::VisibleItem::Check(k) => Some(k),
+                            crate::app::VisibleItem::Suite(name) => {
+                                Some(format!("__suite__{name}"))
+                            }
+                        })
+                });
                 let old_idx = ui.selected;
                 app.prune();
                 app.bump_generation();
                 ui.rebuilding = false;
-                ui.selected = if app.order.is_empty() {
+                let visible = app.visible_items();
+                ui.selected = if visible.is_empty() {
                     None
-                } else if let Some(name) = selected_name {
-                    Some(
-                        app.order
-                            .iter()
-                            .position(|n| n == &name)
-                            .unwrap_or_else(|| old_idx.unwrap_or(0).min(app.order.len() - 1)),
-                    )
+                } else if let Some(key) = selected_key {
+                    let pos = if let Some(suite_name) = key.strip_prefix("__suite__") {
+                        visible.iter().position(
+                            |v| matches!(v, crate::app::VisibleItem::Suite(n) if n == suite_name),
+                        )
+                    } else {
+                        visible.iter().position(
+                            |v| matches!(v, crate::app::VisibleItem::Check(k) if k == &key),
+                        )
+                    };
+                    Some(pos.unwrap_or_else(|| old_idx.unwrap_or(0).min(visible.len() - 1)))
                 } else {
                     None
                 };
@@ -203,7 +218,7 @@ fn run(
                 ui.rebuilding = true;
                 let _ = ingest_tx.send(());
             }
-            ref event => ui.handle(event, &app, &keymap),
+            ref event => ui.handle(event, &mut app, &keymap),
         }
         renderer.draw(&app, &mut ui)?;
     }
