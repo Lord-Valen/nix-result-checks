@@ -8,6 +8,7 @@
   Each line of the output is a JSON object with the following fields:
 
   - `name`: the attribute name of the check
+  - `suite`: suite name, or `null` for flat checks
   - `kind`: the check type (`"result"`, `"snapshot"`, or `"eval"`)
   - `status`: `"pass"`, `"fail"`, or `"skip"`
   - `exitCode`: the raw exit code string
@@ -15,7 +16,7 @@
   - `stderr`: captured stderr
   - `drvPath`: path to the check derivation in the Nix store
 
-  `kind` reflects `passthru.type` on the result check derivation.
+  `kind` reflects `passthru.kind` on the result check derivation.
   `status` is `"skip"` when `exitCode` is empty (set by `mkSkip`).
 
   # Type
@@ -27,7 +28,7 @@
   # Arguments
 
   checks
-  : Attribute set of result check derivations.
+  : Attribute set of `{ check, suite }` pairs, keyed by entry key.
 
   # Example
 
@@ -48,25 +49,33 @@ runCommand "check-report.json"
   ''
     touch $out
     ${lib.concatStringsSep "\n" (
-      lib.mapAttrsToList (name: check: ''
-        exitCode=$(cat ${check.exitCode})
-        if [ -z "$exitCode" ]; then
-          status="skip"
-        elif [ "$exitCode" = "0" ]; then
-          status="pass"
-        else
-          status="fail"
-        fi
+      lib.mapAttrsToList (
+        name:
+        { check, suite }:
+        let
+          displayName = if suite != null then lib.removePrefix "${suite}:" name else name;
+        in
+        ''
+          exitCode=$(cat ${check.exitCode})
+          if [ -z "$exitCode" ]; then
+            status="skip"
+          elif [ "$exitCode" = "0" ]; then
+            status="pass"
+          else
+            status="fail"
+          fi
 
-        jq -n \
-          --arg type "${check.passthru.type or "result"}" \
-          --arg status "$status" \
-          --arg name "${name}" \
-          --arg exitCode "$exitCode" \
-          --rawfile stdout ${check.stdout} \
-          --rawfile stderr ${check.stderr} \
-          --arg drvPath "${check}" \
-          '{kind: $type, status: $status, name: $name, exitCode: $exitCode, stdout: $stdout, stderr: $stderr, drvPath: $drvPath}' >> $out
-      '') checks
+          jq -n \
+            --arg type "${check.passthru.kind or "result"}" \
+            --arg status "$status" \
+            --arg name "${displayName}" \
+            --argjson suite '${builtins.toJSON suite}' \
+            --arg exitCode "$exitCode" \
+            --rawfile stdout ${check.stdout} \
+            --rawfile stderr ${check.stderr} \
+            --arg drvPath "${check}" \
+            '{kind: $type, status: $status, name: $name, suite: $suite, exitCode: $exitCode, stdout: $stdout, stderr: $stderr, drvPath: $drvPath}' >> $out
+        ''
+      ) checks
     )}
   ''

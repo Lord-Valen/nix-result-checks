@@ -5,7 +5,7 @@
 /**
   Assert the outputs of a result check match expected values.
 
-  Compares `exitCode`, `stdout`, and/or `stderr` of `resultCheck` against
+  Compares `exitCode`, `stdout`, and/or `stderr` of the wrapped check against
   expected strings. Any mismatch is reported to the snapshot's own `stderr`
   output. At least one of `exitCode`, `stdout`, or `stderr` must be provided.
 
@@ -14,7 +14,7 @@
   # Type
 
   ```
-  mkSnapshot :: String -> AttrSet -> Derivation
+  mkSnapshot :: String -> AttrSet -> Derivation -> Derivation
   ```
 
   # Arguments
@@ -22,11 +22,8 @@
   name
   : Check name. Becomes the derivation name `snapshot-<name>`.
 
-  snapshot
+  expectations
   : Attribute set with the following keys:
-
-    `resultCheck` *(required)*
-    : The result check derivation to test.
 
     `exitCode` *(optional)*
     : Expected exit code string, e.g. `"0"` or `"1"`.
@@ -37,15 +34,16 @@
     `stderr` *(optional)*
     : Expected stderr content.
 
+  resultCheck
+  : The result check derivation to test.
+
   # Example
 
   ```nix
-  mkSnapshot "hello-snapshot"
-    {
-      resultCheck = mkResult "hello" "echo hi";
-      exitCode = "0";
-      stdout = "hi\n";
-    }
+  mkSnapshot "hello-snapshot" { exitCode = "0"; stdout = "hi\n"; }
+  <| mkResult "hello" "echo hi"
   ```
 */
-{ mkSnapshotWith }: name: snapshot: mkSnapshotWith ({ inherit name; } // snapshot)
+{ mkSnapshotWith }:
+name: expectations: resultCheck:
+mkSnapshotWith ({ inherit name resultCheck; } // expectations)

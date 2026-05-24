@@ -56,7 +56,7 @@ lib.extendMkDerivation {
     }:
     {
       name = "snapshot-${name}";
-      passthru.type = "snapshot";
+      passthru.kind = "snapshot";
       command =
         lib.optionalString (exitCode != null) ''
           printf '%s' ${lib.escapeShellArg exitCode} > "$TMPDIR/expected-exitCode"

@@ -66,7 +66,7 @@ let
 in
 mkResultWith {
   name = "eval-tests-${name}";
-  passthru.type = "eval";
+  passthru.kind = "eval";
   buildCommand = ''
     touch "$out"
     printf '%s' ${lib.escapeShellArg stdout} > "$stdout"

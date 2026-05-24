@@ -26,11 +26,11 @@ All functions are available under `pkgs.resultChecks` via the overlay.
 
 | Function | Signature | Description |
 |---|---|---|
-| `mkResult` | `name: command: drv` | Run a command, capturing stdout, stderr, and exit code. Sets `passthru.type = "result"`. |
+| `mkResult` | `name: command: drv` | Run a command, capturing stdout, stderr, and exit code. Sets `passthru.kind = "result"`. |
 | `mkResultWith` | `attrs: drv` | Low-level `mkResult`. Pass `command` for capture-wrapped execution or `buildCommand` for full control. All `mkDerivation` attrs are supported. |
-| `mkSnapshot` | `name: { resultCheck, exitCode?, stdout?, stderr? }: drv` | Assert a result check's outputs match expected values. Comparison is byte-exact via `cmp`. Sets `passthru.type = "snapshot"`. |
+| `mkSnapshot` | `name: { exitCode?, stdout?, stderr? }: resultCheck: drv` | Assert a result check's outputs match expected values. Comparison is byte-exact via `cmp`. Sets `passthru.kind = "snapshot"`. |
 | `mkSnapshotWith` | `attrs: drv` | Low-level `mkSnapshot`. Accepts all `mkResultWith` attrs alongside snapshot-specific keys. |
-| `mkEval` | `name: tests: drv` | Run `lib.debug.runTests`-style eval tests (`{ expr; expected; }`). Formats failures as `FAIL: name / expected: X / got: Y`. Sets `passthru.type = "eval"`. |
+| `mkEval` | `name: tests: drv` | Run `lib.debug.runTests`-style eval tests (`{ expr; expected; }`). Formats failures as `FAIL: name / expected: X / got: Y`. Sets `passthru.kind = "eval"`. |
 | `mkSkip` | `drv: drv` | Skip any check. Overrides the derivation to produce empty outputs, clearing `buildInputs` and `nativeBuildInputs` so dependencies are not built. |
 
 ### Generators
@@ -62,10 +62,16 @@ Add `nix-result-checks` as an input and import the flake module:
         resultChecks.checks =
           let inherit (pkgs) resultChecks;
           in {
+            # Flat check
             my-test = resultChecks.mkResult "my-test" ''
               echo "running tests..."
               exit 0
             '';
+            # Suite: grouped checks under a named header
+            db = {
+              schema = resultChecks.mkResult "db-schema" "exit 0";
+              migrations = resultChecks.mkResult "db-migrations" "exit 0";
+            };
           };
 
         # Expose the report as a package
@@ -80,8 +86,8 @@ Add `nix-result-checks` as an input and import the flake module:
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `resultChecks.enable` | `bool` | `true` | Enable the module. |
-| `resultChecks.checks` | `attrsOf package` | `{}` | Check derivations produced by `mkResult`, `mkSnapshot`, etc. |
-| `resultChecks.skipChecks` | `listOf str` | `[]` | Check names to skip. Applies `mkSkip` to matching checks. |
+| `resultChecks.checks` | `attrsOf (package \| attrsOf package)` | `{}` | Flat checks or suites. Flat: `name = drv`. Suite: `suite-name = { check-name = drv; ... }`. |
+| `resultChecks.skipChecks` | `listOf str` | `[]` | Check keys to skip. Flat checks: `"name"`. Suite checks: `"suite:name"`. |
 | `resultChecks.enableFlakeChecks` | `bool` | `true` | Bridge non-skipped checks into `flake.checks` so `nix flake check` reports failures. |
 | `resultChecks.reportGenerator` | `checks -> package` | JSON generator | Function producing a report package from the checks attrset. |
 | `resultChecks.report` | `package` | (derived) | The generated report. Read-only. |
@@ -191,13 +197,13 @@ All outputs use `printf '%s'` — files contain exactly the bytes written, with 
 
 ```nix
 mkSnapshot "my-test" {
-  resultCheck = checks.my-test;
   exitCode = "0";
   stdout = ''
     Test 1: PASS
     Test 2: PASS
   '';
 }
+<| checks.my-test
 ```
 
 ## Usage without flake-parts
@@ -219,37 +225,15 @@ in
 
 ## Report Format
 
-The default KDL report separates *type* (what kind of check) from *status* (what happened):
+The default JSON report is newline-delimited JSON. Each line is one check:
 
-```kdl
-result "my-test" status="success" {
-  drv #"/nix/store/..."#
-  exit-code 0
-  stdout ###"""
-    test output here
-    """###
-  stderr null
-}
-
-snapshot "my-snapshot" status="failure" {
-  drv #"/nix/store/..."#
-  exit-code 1
-  stdout null
-  stderr ###"""
-    Stdout mismatch
-    Expected: ...
-    Got: ...
-    """###
-}
-
-result "skipped-test" status="skip" {
-  drv #"/nix/store/..."#
-  exit-code null
-  stdout null
-  stderr null
-}
+```json
+{"kind":"result","status":"pass","name":"my-test","suite":null,"exitCode":"0","stdout":"test output\n","stderr":"","drvPath":"/nix/store/..."}
+{"kind":"snapshot","status":"fail","name":"my-snapshot","suite":null,"exitCode":"1","stdout":"","stderr":"Stdout mismatch\n...","drvPath":"/nix/store/..."}
+{"kind":"result","status":"skip","name":"skipped-test","suite":null,"exitCode":"","stdout":"","stderr":"","drvPath":"/nix/store/..."}
+{"kind":"result","status":"pass","name":"schema","suite":"db","exitCode":"0","stdout":"","stderr":"","drvPath":"/nix/store/..."}
 ```
 
-Node type is one of `result`, `snapshot`. Status is one of `success`, `failure`, `skip`.
+`kind` is one of `result`, `snapshot`, `eval`. `status` is one of `pass`, `fail`, `skip`. `suite` is the suite name for grouped checks, or `null` for flat checks.
 
 The `drv` field is the store path of the check derivation. It is useful for locating the derivation's outputs directly (e.g. `${drv.stdout}`, `${drv.stderr}`). Note that `nix log <drvPath>` shows the builder's own stderr — not the command output, which is always redirected into the derivation's output files.

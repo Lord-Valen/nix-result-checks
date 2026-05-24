@@ -45,6 +45,6 @@
 name: command:
 mkResultWith {
   name = "result-${name}";
-  passthru.type = "result";
+  passthru.kind = "result";
   inherit command;
 }

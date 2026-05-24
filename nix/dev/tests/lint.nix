@@ -6,12 +6,11 @@
   perSystem =
     {
       config,
-      lib,
       pkgs,
       ...
     }:
     {
-      resultChecks.checks =
+      resultChecks.checks.lint =
         let
           inherit (pkgs.resultChecks) mkResult;
         in

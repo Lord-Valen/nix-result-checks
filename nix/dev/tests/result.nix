@@ -4,15 +4,19 @@
 
 {
   perSystem =
-    { config, pkgs, ... }:
     {
-      resultChecks.checks =
+      config,
+      pkgs,
+      ...
+    }:
+    {
+      resultChecks.checks.result =
         let
           inherit (pkgs.resultChecks) mkResult mkSnapshot;
           inherit (config.resultChecks) checks;
         in
         {
-          test-passing-actual = mkResult "test-passing-actual" ''
+          passing-actual = mkResult "test-passing-actual" ''
             echo "Starting test suite..." >&2
             echo "Running unit tests..." >&2
             echo "Test 1: PASS"
@@ -21,22 +25,33 @@
             exit 0
           '';
 
-          test-passing = mkSnapshot "test-passing" {
-            resultCheck = checks.test-passing-actual;
-            exitCode = "0";
-            stdout = ''
-              Test 1: PASS
-              Test 2: PASS
-            '';
-            stderr = ''
-              Starting test suite...
-              Running unit tests...
-              All tests completed successfully
-            '';
-          };
+          passing =
+            mkSnapshot "test-passing" {
+              exitCode = "0";
+              stdout = ''
+                Test 1: PASS
+                Test 2: PASS
+              '';
+              stderr = ''
+                Starting test suite...
+                Running unit tests...
+                All tests completed successfully
+              '';
+            }
+            <| checks.result.passing-actual;
 
-          test-failing = mkSnapshot "test-failing" {
-            resultCheck = mkResult "test-failing-actual" ''
+          failing =
+            mkSnapshot "test-failing" {
+              exitCode = "1";
+              stderr = ''
+                Starting validation checks...
+                Checking configuration...
+                Warning: Deprecated option detected
+                ERROR: Validation failed - missing required field
+                Failed at line 42
+              '';
+            }
+            <| mkResult "test-failing-actual" ''
               echo "Starting validation checks..." >&2
               echo "Checking configuration..." >&2
               echo "Warning: Deprecated option detected" >&2
@@ -44,15 +59,6 @@
               echo "Failed at line 42" >&2
               exit 1
             '';
-            exitCode = "1";
-            stderr = ''
-              Starting validation checks...
-              Checking configuration...
-              Warning: Deprecated option detected
-              ERROR: Validation failed - missing required field
-              Failed at line 42
-            '';
-          };
         };
     };
 }

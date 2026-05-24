@@ -12,8 +12,8 @@
     }:
     {
       resultChecks = {
-        skipChecks = [ "skip-list-actual" ];
-        checks =
+        skipChecks = [ "skip:list-actual" ];
+        checks.skip =
           let
             inherit (pkgs.resultChecks)
               mkResult
@@ -21,7 +21,6 @@
               mkSnapshot
               mkEval
               ;
-            inherit (config.resultChecks) checks;
             module = (import ../../modules/resultChecks/flakeModule.nix).perSystem;
             evalChecks =
               cfg:
@@ -39,39 +38,42 @@
               }).config.resultChecks.checks;
           in
           {
-            skip-func = mkSnapshot "skip-func" {
-              resultCheck =
-                mkResult "skip-func-actual" ''
-                  echo "This should be skipped"
-                  exit 1
-                ''
-                |> mkSkip;
+            func =
+              mkSnapshot "skip-func" {
+                exitCode = "";
+                stdout = "";
+                stderr = "";
+              }
+              <| mkSkip
+              <| mkResult "skip-func-actual" ''
+                echo "This should be skipped"
+                exit 1
+              '';
 
-              exitCode = "";
-              stdout = "";
-              stderr = "";
-            };
+            args =
+              mkSnapshot "skip-args" {
+                exitCode = "";
+                stdout = "";
+                stderr = "";
+              }
+              <| mkSkip
+              <| mkResult "skip-args-actual" ''
+                echo "This should be skipped"
+                exit 1
+              '';
 
-            skip-args = mkSnapshot "skip-args" {
-              resultCheck =
-                mkResult "skip-args-actual" ''
-                  echo "This should be skipped"
-                  exit 1
-                ''
-                |> mkSkip;
-
-              exitCode = "";
-              stdout = "";
-              stderr = "";
-            };
-
-            skip-list-actual = mkResult "skip-list-actual" ''
+            list-actual = mkResult "skip-list-actual" ''
               echo "This should be skipped"
               exit 1
             '';
 
-            skip-list = mkSnapshot "skip-list" {
-              resultCheck = mkEval "skip-list" {
+            list =
+              mkSnapshot "skip-list" {
+                exitCode = "0";
+                stdout = "";
+                stderr = "";
+              }
+              <| mkEval "skip-list" {
                 testSkipChecksApplied = {
                   expr =
                     (evalChecks {
@@ -88,11 +90,6 @@
                   expected = false;
                 };
               };
-
-              exitCode = "0";
-              stdout = "";
-              stderr = "";
-            };
           };
       };
     };
