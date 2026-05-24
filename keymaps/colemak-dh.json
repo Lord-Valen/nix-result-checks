@@ -8,11 +8,13 @@
   "up": "SelectPrev",
   "]": "NextSuite",
   "[": "PrevSuite",
-  " ": "ToggleSuite",
-  "enter": "ToggleDetail",
+  " ": "Dwim",
+  "enter": "Dwim",
+  "d": "ToggleDetail",
   "tab": "ToggleFocus",
   "left": "ScrollLeft",
   "right": "ScrollRight",
   "ctrl+d": "PageDown",
-  "ctrl+u": "PageUp"
+  "ctrl+u": "PageUp",
+  "?": "ShowHelp"
 }

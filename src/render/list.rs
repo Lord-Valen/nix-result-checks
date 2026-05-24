@@ -18,6 +18,7 @@ mod tests {
     use ratatui::backend::TestBackend;
 
     use crate::app::{App, CheckEntry, EntryKind, Status};
+    use crate::config::Keymap;
     use crate::render::render;
     use crate::ui::Ui;
 
@@ -43,9 +44,10 @@ mod tests {
         ui.selected = Some(0);
         let backend = TestBackend::new(width, height);
         let mut terminal = Terminal::new(backend).unwrap();
+        let keymap = Keymap::qwerty();
         terminal
             .draw(|frame| {
-                render(frame, &app, &ui);
+                render(frame, &app, &ui, &keymap);
             })
             .unwrap();
         terminal.backend().to_string()

@@ -164,7 +164,7 @@ fn run(
     };
 
     renderer.clear();
-    renderer.draw(&app, &mut ui)?;
+    renderer.draw(&app, &mut ui, &keymap)?;
 
     for event in &rx {
         match event {
@@ -220,7 +220,7 @@ fn run(
             }
             ref event => ui.handle(event, &mut app, &keymap),
         }
-        renderer.draw(&app, &mut ui)?;
+        renderer.draw(&app, &mut ui, &keymap)?;
     }
 
     Ok(())

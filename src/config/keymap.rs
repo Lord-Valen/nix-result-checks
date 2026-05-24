@@ -111,6 +111,8 @@ pub enum Command {
     SelectPrev,
     NextSuite,
     PrevSuite,
+    /// Suite selected: fold/unfold. Check selected: toggle detail panel.
+    Dwim,
     ToggleSuite,
     ToggleDetail,
     ToggleFocus,
@@ -120,6 +122,31 @@ pub enum Command {
     ScrollRight,
     PageDown,
     PageUp,
+    ShowHelp,
+}
+
+impl Command {
+    pub fn description(self) -> &'static str {
+        match self {
+            Command::Quit => "quit",
+            Command::Reload => "reload checks",
+            Command::SelectNext => "select next",
+            Command::SelectPrev => "select previous",
+            Command::NextSuite => "jump to next suite",
+            Command::PrevSuite => "jump to previous suite",
+            Command::Dwim => "fold suite / toggle detail",
+            Command::ToggleSuite => "fold/unfold suite",
+            Command::ToggleDetail => "toggle detail panel",
+            Command::ToggleFocus => "switch stdout/stderr focus",
+            Command::ScrollDown => "scroll down",
+            Command::ScrollUp => "scroll up",
+            Command::ScrollLeft => "scroll left",
+            Command::ScrollRight => "scroll right",
+            Command::PageDown => "page down",
+            Command::PageUp => "page up",
+            Command::ShowHelp => "show/hide help",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -178,6 +205,55 @@ impl Keymap {
             .map(|(combo, cmds)| (*combo, Commands::Many(cmds.to_vec())))
             .collect();
         Self { bindings }
+    }
+}
+
+impl fmt::Display for KeyCombo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let key = match self.code {
+            KeyCode::Char(' ') => "Space".to_string(),
+            KeyCode::Char(c) => c.to_string(),
+            KeyCode::Enter => "Enter".to_string(),
+            KeyCode::Esc => "Esc".to_string(),
+            KeyCode::Tab => "Tab".to_string(),
+            KeyCode::Backspace => "Backspace".to_string(),
+            KeyCode::Delete => "Delete".to_string(),
+            KeyCode::Up => "Up".to_string(),
+            KeyCode::Down => "Down".to_string(),
+            KeyCode::Left => "Left".to_string(),
+            KeyCode::Right => "Right".to_string(),
+            KeyCode::Home => "Home".to_string(),
+            KeyCode::End => "End".to_string(),
+            KeyCode::PageUp => "PageUp".to_string(),
+            KeyCode::PageDown => "PageDown".to_string(),
+            other => format!("{other:?}"),
+        };
+        if self.modifiers.contains(KeyModifiers::CONTROL) {
+            write!(f, "Ctrl+{key}")
+        } else {
+            write!(f, "{key}")
+        }
+    }
+}
+
+impl Keymap {
+    pub fn help_lines(&self) -> Vec<(String, String)> {
+        let mut lines: Vec<(String, String)> = self
+            .bindings
+            .iter()
+            .map(|(combo, cmds)| {
+                let key = combo.to_string();
+                let desc = cmds
+                    .as_slice()
+                    .iter()
+                    .map(|c| c.description())
+                    .collect::<Vec<_>>()
+                    .join(" / ");
+                (key, desc)
+            })
+            .collect();
+        lines.sort_by(|a, b| a.0.cmp(&b.0));
+        lines
     }
 }
 

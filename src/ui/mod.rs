@@ -61,6 +61,7 @@ pub struct Ui {
     pub stderr_scroll: u16,
     pub stderr_h_scroll: u16,
     pub toast: Option<String>,
+    pub show_help: bool,
     pub rebuilding: bool,
     pub watch_count: Option<usize>,
     pub stdout_bounds: PanelBounds,
@@ -80,6 +81,7 @@ impl Ui {
             stderr_scroll: 0,
             stderr_h_scroll: 0,
             toast: None,
+            show_help: false,
             rebuilding: true,
             watch_count: None,
             stdout_bounds: PanelBounds::default(),
@@ -117,6 +119,9 @@ impl Ui {
         match event {
             Event::Key(_) if self.toast.is_some() => {
                 self.toast = None;
+            }
+            Event::Key(_) if self.show_help => {
+                self.show_help = false;
             }
             Event::Key(key) => {
                 if let Some(cmds) = keymap.lookup(key) {
@@ -186,6 +191,14 @@ impl Ui {
                 self.select_prev_suite(app);
                 true
             }
+            Command::Dwim => {
+                let visible = app.visible_items();
+                match self.selected.and_then(|i| visible.get(i)) {
+                    Some(VisibleItem::Suite(_)) => self.execute(Command::ToggleSuite, app),
+                    Some(VisibleItem::Check(_)) => self.execute(Command::ToggleDetail, app),
+                    None => false,
+                }
+            }
             Command::ToggleSuite => {
                 self.toggle_suite(app);
                 true
@@ -213,6 +226,10 @@ impl Ui {
             Command::ScrollUp => self.scroll_v(app, u16::saturating_sub, 1),
             Command::PageDown => self.scroll_v(app, u16::saturating_add, 10),
             Command::PageUp => self.scroll_v(app, u16::saturating_sub, 10),
+            Command::ShowHelp => {
+                self.show_help = !self.show_help;
+                true
+            }
         }
     }
 

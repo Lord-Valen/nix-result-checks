@@ -71,6 +71,67 @@ fn select_prev_clamps_at_start() {
     assert_eq!(ui.selected, Some(0));
 }
 
+// -- Dwim --
+
+#[test]
+fn dwim_on_suite_folds() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_suite_app();
+    ui.selected = Some(0); // Suite("db")
+    ui.execute(Command::Dwim, &mut app);
+    assert!(app.folded_suites.contains("db"));
+}
+
+#[test]
+fn dwim_on_suite_folds_even_when_detail_open() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_suite_app();
+    ui.selected = Some(0); // Suite("db")
+    ui.detail_key = Some("db:alpha".to_string());
+    ui.detail_open = true;
+    ui.execute(Command::Dwim, &mut app);
+    assert!(app.folded_suites.contains("db"));
+    assert!(ui.detail_open); // detail stays open — suite Dwim doesn't touch it
+}
+
+#[test]
+fn dwim_on_check_opens_detail() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_suite_app();
+    ui.selected = Some(1); // Check("db:alpha")
+    ui.detail_key = Some("db:alpha".to_string());
+    ui.execute(Command::Dwim, &mut app);
+    assert!(ui.detail_open);
+}
+
+#[test]
+fn dwim_on_check_closes_detail() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_suite_app();
+    ui.selected = Some(1); // Check("db:alpha")
+    ui.detail_key = Some("db:alpha".to_string());
+    ui.detail_open = true;
+    ui.execute(Command::Dwim, &mut app);
+    assert!(!ui.detail_open);
+}
+
+// -- Toggle detail --
+
+#[test]
+fn toggle_detail_stays_open_when_suite_selected() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_suite_app();
+    // opened detail on a check, then navigated to suite header —
+    // detail_key persists, so ToggleDetail still works
+    ui.detail_key = Some("db:alpha".to_string());
+    ui.detail_open = true;
+    ui.selected = Some(0); // Suite("db")
+    assert!(ui.execute(Command::ToggleDetail, &mut app));
+    assert!(!ui.detail_open);
+}
+
+// -- Page scroll --
+
 #[test]
 fn page_down_increments_by_10() {
     let (mut ui, _rx) = make_ui();
@@ -103,18 +164,7 @@ fn page_up_decrements_by_10() {
     assert_eq!(ui.stdout_scroll, 5);
 }
 
-#[test]
-fn toggle_detail_stays_open_when_suite_selected() {
-    let (mut ui, _rx) = make_ui();
-    let mut app = make_suite_app();
-    // opened detail on a check, then navigated to suite header —
-    // detail_key persists, so ToggleDetail still works
-    ui.detail_key = Some("db:alpha".to_string());
-    ui.detail_open = true;
-    ui.selected = Some(0); // Suite("db")
-    assert!(ui.execute(Command::ToggleDetail, &mut app));
-    assert!(!ui.detail_open);
-}
+// -- Dispatch --
 
 #[test]
 fn dispatch_commands_does_not_continue_after_handled() {
@@ -125,6 +175,8 @@ fn dispatch_commands_does_not_continue_after_handled() {
     ui.dispatch_commands(&cmds, &mut app);
     assert_eq!(ui.selected, Some(1));
 }
+
+// -- Mouse --
 
 #[test]
 fn mouse_scroll_down_scrolls_detail_panel() {

@@ -120,6 +120,7 @@ const VALID_COMMANDS: &[&str] = &[
     "SelectPrev",
     "NextSuite",
     "PrevSuite",
+    "Dwim",
     "ToggleSuite",
     "ToggleDetail",
     "ToggleFocus",
@@ -129,6 +130,7 @@ const VALID_COMMANDS: &[&str] = &[
     "ScrollRight",
     "PageDown",
     "PageUp",
+    "ShowHelp",
 ];
 
 fn validate_command(cmd: &str, path: &Path) {

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 mod detail;
+mod help;
 mod list;
 pub(crate) mod toast;
 
@@ -20,6 +21,7 @@ use ratatui::{
 };
 
 use crate::app::App;
+use crate::config::Keymap;
 use crate::ui::Ui;
 
 /// Visible inner dimensions of a scrollable panel (excluding borders).
@@ -46,9 +48,10 @@ impl Renderer {
         let _ = self.terminal.clear();
     }
 
-    pub fn draw(&mut self, app: &App, ui: &mut Ui) -> io::Result<()> {
+    pub fn draw(&mut self, app: &App, ui: &mut Ui, keymap: &Keymap) -> io::Result<()> {
         let mut bounds = None;
-        self.terminal.draw(|f| bounds = render(f, app, ui))?;
+        self.terminal
+            .draw(|f| bounds = render(f, app, ui, keymap))?;
         if let Some((stdout_b, stderr_b)) = bounds {
             ui.set_panel_bounds(stdout_b, stderr_b, app);
         }
@@ -68,7 +71,12 @@ impl Drop for Renderer {
     }
 }
 
-fn render(frame: &mut Frame, app: &App, ui: &Ui) -> Option<(PanelBounds, PanelBounds)> {
+fn render(
+    frame: &mut Frame,
+    app: &App,
+    ui: &Ui,
+    keymap: &Keymap,
+) -> Option<(PanelBounds, PanelBounds)> {
     let area = frame.area();
     let bounds = if ui.detail_open && ui.detail_key.is_some() {
         let list_width = Ui::list_panel_width(app);
@@ -84,6 +92,9 @@ fn render(frame: &mut Frame, app: &App, ui: &Ui) -> Option<(PanelBounds, PanelBo
     };
     if let Some(msg) = &ui.toast {
         toast::render_toast(frame, msg, area);
+    }
+    if ui.show_help {
+        help::render_help(frame, keymap, area);
     }
     bounds
 }
