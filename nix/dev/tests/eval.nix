@@ -109,6 +109,18 @@
             expected.t = skipEntry;
           };
 
+          # A non-test attribute must fail loudly when its entry is forced,
+          # never report as a verdict. runTests would have ignored it.
+          testMalformedTestThrows = {
+            expr =
+              !(builtins.tryEval
+                (mkEntries (mkEval {
+                  helper = 42;
+                })).helper
+              ).success;
+            expected = true;
+          };
+
           testSkippedTestIsLazy = {
             expr = mkEntries (
               mkEval {

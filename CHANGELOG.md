@@ -63,6 +63,9 @@ CI enforces this for changes touching `src/` or `nix/`.
 
 - `mkEval "name" { ... }` → `mkEval { ... }`.
   The checks attribute key names the suite.
+- Helper values that rode along in a `runTests`-style attrset
+  (ignored by its `test*` name filter) now fail loudly;
+  move them into a `let` binding.
 - `mkSnapshot ... <| mkEval ...` no longer works
   (eval checks have no derivation outputs).
   Snapshot at eval level instead:

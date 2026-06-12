@@ -56,6 +56,13 @@ let
 
   runEntry =
     name: test:
+    if !(lib.isAttrs test && test ? expr && test ? expected) then
+      throw "attribute '${name}' of an eval check is not a test ({ expr, expected }); every attribute is a test. Move helpers into a let binding."
+    else
+      mkEntry name test;
+
+  mkEntry =
+    name: test:
     let
       # Direct comparison rather than lib.debug.runTests: runTests only
       # runs attributes named test*, which would silently pass any other
