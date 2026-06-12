@@ -221,36 +221,48 @@ through nix-build and nix-instantiate when nix-eval-jobs is absent,
 so neither flakes nor nix-command is required.
 `-A attr` builds a single attribute as a report instead.
 
-## Test Orchestration
+## Artifact Reuse
 
-Tests can depend on other tests via `nativeBuildInputs` in `mkResultWith`.
-This creates build-time dependencies, ensuring ordering:
+A check that produces something expensive can share it:
+the Nix store is the fixture cache.
+Downstream checks reference the artifact path,
+which doubles as the build ordering;
+unchanged setup is never rebuilt across runs.
+
+When the setup is not itself under test,
+keep it a plain derivation:
 
 ```nix
 {
-  unit-tests = resultChecks.mkResult "unit-tests" ''
-    echo "running unit tests..."
-    exit 0
-  '';
-
-  integration = (resultChecks.mkResult "integration" ''
-    exitCode=$(cat ${checks.unit-tests.exitCode})
-    if [ "$exitCode" != "0" ]; then
-      echo "unit tests failed, skipping integration"
-      exit 1
-    fi
-    echo "running integration tests..."
-    exit 0
-  '').overrideAttrs {
-    nativeBuildInputs = [ checks.unit-tests ];
-  };
+  fixture = pkgs.runCommand "test-db" { } "expensive-setup > $out";
+  schema = resultChecks.mkResult "schema" "validate ${fixture}";
+  queries = resultChecks.mkResult "queries" "run-queries ${fixture}";
 }
 ```
 
-`integration` will not build until `unit-tests` completes.
-Since results always succeed as derivations
+A failed fixture fails its dependents as ordinary build failures.
+
+When the setup's own verdict belongs in the report,
+make it a result check that writes the artifact to `$out`,
+and guard downstream on its exit code to fail gracefully:
+
+```nix
+{
+  fixture = resultChecks.mkResult "make-db" "expensive-setup > $out";
+
+  queries = resultChecks.mkResult "queries" ''
+    [ "$(cat ${checks.fixture.exitCode})" = "0" ] || {
+      echo "setup failed" >&2
+      exit 1
+    }
+    run-queries ${checks.fixture}
+  '';
+}
+```
+
+Since result checks always succeed as derivations
 (failures are captured in `exitCode`),
-dependent tests can inspect the exit code, log,
+dependent checks can inspect the exit code, log,
 or artifacts of their dependencies and decide how to proceed.
 
 ## Eval Tests
