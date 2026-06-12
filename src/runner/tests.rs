@@ -88,6 +88,18 @@ fn select_script_is_embedded() {
 }
 
 #[test]
+fn file_mode_projects_eval_checks_from_the_data_type() {
+    let select = file_select();
+    assert!(select.starts_with("root: ("));
+    assert!(select.ends_with(") root.evalChecks"));
+
+    let args = nej_file_args("./checks.nix", 4);
+    assert!(args.contains(&"--no-instantiate".to_owned()));
+    assert!(args.contains(&select));
+    assert_eq!(args.last().map(String::as_str), Some("./checks.nix"));
+}
+
+#[test]
 fn report_attr_follows_convention() {
     assert_eq!(
         report_attr("github:foo/bar", "aarch64-darwin"),

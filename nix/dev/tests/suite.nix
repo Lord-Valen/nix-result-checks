@@ -32,12 +32,9 @@
         }).config.resultChecks.checks;
 
       # A minimal report built from a controlled suite check, used to verify
-      # the generator emits bare names and the correct suite field.
-      minimalSuiteReport = pkgs.resultChecks.json.override {
-        checks."example:check" = {
-          check = mkResult "check" "exit 0";
-          suite = "example";
-        };
+      # normalization emits bare names and the correct suite field.
+      minimalSuiteReport = pkgs.resultChecks.mkReport {
+        example.check = mkResult "check" "exit 0";
       };
     in
     {

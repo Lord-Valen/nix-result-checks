@@ -46,7 +46,15 @@ CI enforces this for changes touching `src/` or `nix/`.
 - Reserved flake output `resultChecks.<system> = { report; evalChecks; }`,
   the single attribute runners need.
   Flake-parts partition users must add `resultChecks` to `partitionedAttrs`.
-- `resultChecks.evalChecks` and `resultChecks.reportChecks` module options.
+- `resultChecks.evalChecks` module option.
+- The value nrc consumes, `{ report; evalChecks; }`, is the contract.
+  `mkReport` and `mkEvalChecks` produce its two halves from one check
+  set (the same shape `resultChecks.checks` accepts); the flake-parts
+  module is a pure shim over them.
+- `nrc --file checks.nix` runs a file evaluating to that value like
+  the flake convention: report build and parallel evaluation through
+  nix-build, nix-eval-jobs, and nix-instantiate — no flakes or
+  nix-command required. `-A attr` keeps the report-only behaviour.
 - nrc convention mode: `nrc --flake <ref>` (no fragment) builds the report
   and evaluates eval checks in parallel through nix-eval-jobs,
   merging both streams.
@@ -58,6 +66,9 @@ CI enforces this for changes touching `src/` or `nix/`.
 ### Removed
 
 - The KDL report generator. JSON is the report format.
+- The `resultChecks.reportGenerator` option.
+  The report is the protocol consumed by nrc and the flake check gate;
+  custom presentation belongs downstream of `nrc --stream` output.
 
 ### Migration
 

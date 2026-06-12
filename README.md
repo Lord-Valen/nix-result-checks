@@ -35,9 +35,10 @@ Any check can be skipped via `mkSkip`, the `passthru.skip` attribute,
 or the flake-parts `skipChecks` option.
 Skipped checks produce empty outputs and do not build their dependencies.
 
-**Pluggable reporting.**
-Generators transform derivation check results into reports in any format.
-The default generator produces JSON.
+**Reports are a protocol.**
+The JSON report is the wire format consumed by nrc and the flake check gate.
+Custom presentation belongs downstream:
+render from `nrc --stream` output or from the entry data itself.
 
 ## API
 
@@ -53,6 +54,8 @@ All functions are available under `pkgs.resultChecks` via the overlay.
 | `mkSnapshotWith` | `attrs: drv`                                              | Low-level `mkSnapshot`. Accepts all `mkResultWith` attrs alongside snapshot-specific keys.                                                                                             |
 | `mkEval`         | `tests: evalCheck`                                        | Declare eval tests (`{ expr; expected; }`, the `lib.debug.runTests` format). Returns plain data tagged `kind = "eval"` — no derivation. Every attribute is a test, regardless of name. |
 | `mkEntries`      | `evalCheck: attrs`                                        | Compute per-test entries (`{ kind; status; exitCode; stdout; stderr; }`) for an eval check, lazily: a test only evaluates when its entry is forced.                                   |
+| `mkReport`       | `checks: drv`                                             | Report package for the derivation half of a check set (flat checks and suites; eval checks ignored).                                                                                  |
+| `mkEvalChecks`   | `checks: attrs`                                           | Lazy entries tree for the eval half of a check set, keyed by check then test — the shape behind `resultChecks.<system>.evalChecks`.                                                   |
 | `mkSkip`         | `(drv \| evalCheck) -> same`                              | Skip any check. Derivations are overridden to produce empty outputs with no dependencies built; eval checks are marked so their tests are never evaluated.                             |
 
 ### Generators
@@ -61,7 +64,9 @@ All functions are available under `pkgs.resultChecks` via the overlay.
 | ------- | --------------------------------------------------------------------------------------- |
 | `json`  | Generates a JSON report from check results. Override `checks` to provide the check set. |
 
-## Usage with flake-parts
+## Usage
+
+### With flake-parts
 
 Add `nix-result-checks` as an input and import the flake module:
 
@@ -102,7 +107,7 @@ Add `nix-result-checks` as an input and import the flake module:
 }
 ```
 
-### flake-parts Options
+#### Options
 
 | Option                           | Type                                                | Default        | Description                                                                                                                              |
 | -------------------------------- | --------------------------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -110,9 +115,7 @@ Add `nix-result-checks` as an input and import the flake module:
 | `resultChecks.checks`            | `attrsOf (package \| evalCheck \| attrsOf package)` | `{}`           | Flat checks, eval checks, or suites. Flat: `name = drv`. Eval: `name = mkEval { ... }`. Suite: `suite-name = { check-name = drv; ... }`. |
 | `resultChecks.skipChecks`        | `listOf str`                                        | `[]`           | Check keys to skip. Flat checks: `"name"`. Suite checks and eval tests: `"suite:name"`.                                                  |
 | `resultChecks.enableFlakeChecks` | `bool`                                              | `true`         | Add the aggregate `resultChecks` gate to `flake.checks`.                                                                                 |
-| `resultChecks.reportGenerator`   | `checks -> package`                                 | JSON generator | Function producing a report package from the checks attrset.                                                                             |
 | `resultChecks.report`            | `package`                                           | (derived)      | The generated report, covering derivation checks only. Read-only.                                                                        |
-| `resultChecks.reportChecks`      | `listOf str`                                        | (derived)      | Keys of the checks covered by the report. Read-only.                                                                                     |
 | `resultChecks.evalChecks`        | `lazyAttrsOf (lazyAttrsOf raw)`                     | (derived)      | Per-test entries of all eval checks, keyed by check then test name. Computed lazily so runners can force them in parallel. Read-only.    |
 
 The module also defines the reserved flake output
@@ -121,7 +124,7 @@ the single attribute runners need.
 If you use flake-parts partitions,
 add `resultChecks` to `partitionedAttrs` or the output is silently dropped.
 
-### Flake Check Integration
+#### Flake Check Integration
 
 A single aggregate `resultChecks` check is added to `flake.checks`.
 It depends on every derivation check (built in parallel by the scheduler),
@@ -132,6 +135,91 @@ and fails if any check failed:
 ```console
 $ nix flake check
 ```
+
+### Without flake-parts
+
+Everything nrc consumes is one value:
+
+```
+{ report :: drv; evalChecks :: { check -> test -> entry }; }
+```
+
+The flake-parts module is a shim that produces this value
+at the `resultChecks.<system>` flake output;
+without flake-parts, you produce it yourself:
+
+```nix
+# flake.nix, no flake-parts
+outputs = { nixpkgs, nix-result-checks, ... }:
+  let
+    pkgs = import nixpkgs {
+      system = "x86_64-linux";
+      overlays = [ nix-result-checks.overlays.default ];
+    };
+    rc = pkgs.resultChecks;
+
+    # The same shape resultChecks.checks accepts.
+    checks = {
+      my-test = rc.mkResult "my-test" "exit 0";
+      my-lib = rc.mkEval {
+        testAdd = {
+          expr = 1 + 1;
+          expected = 2;
+        };
+      };
+    };
+  in
+  {
+    resultChecks.x86_64-linux = {
+      report = rc.mkReport checks;
+      evalChecks = rc.mkEvalChecks checks;
+    };
+  };
+```
+
+`nrc --flake .` consumes this shape
+exactly as it consumes the module-generated one.
+
+### Without flakes
+
+The same data type, in a file.
+`default.nix` exposes the overlay for plain imports:
+
+```nix
+# checks.nix
+let
+  nix-result-checks = import ./path/to/nix-result-checks;
+  pkgs = import <nixpkgs> {
+    overlays = [ nix-result-checks.overlays.default ];
+  };
+  rc = pkgs.resultChecks;
+
+  # The same shape resultChecks.checks accepts.
+  checks = {
+    my-test = rc.mkResult "my-test" "exit 0";
+    my-lib = rc.mkEval {
+      testAdd = {
+        expr = 1 + 1;
+        expected = 2;
+      };
+    };
+  };
+in
+{
+  report = rc.mkReport checks;
+  evalChecks = rc.mkEvalChecks checks;
+}
+```
+
+```console
+$ nrc --file ./checks.nix
+```
+
+Same experience as flake mode:
+the report builds while the eval entries evaluate in parallel,
+through nix-build and nix-instantiate when nix-eval-jobs is absent,
+so neither flakes nor nix-command is required.
+`-A attr` builds a single attribute as a report instead.
 
 ## Test Orchestration
 
@@ -164,48 +252,6 @@ Since results always succeed as derivations
 (failures are captured in `exitCode`),
 dependent tests can inspect the exit code, log,
 or artifacts of their dependencies and decide how to proceed.
-
-## Skipping Checks
-
-There are three ways to skip a check:
-
-**`mkSkip`** wraps any check to skip it:
-
-```nix
-resultChecks.mkResult "my-test" ''
-  echo "expensive test"
-  exit 0
-''
-|> resultChecks.mkSkip
-```
-
-**`passthru.skip`** skips from within `mkResultWith`:
-
-```nix
-resultChecks.mkResultWith {
-  name = "result-my-test";
-  passthru.skip = true;
-  command = ''
-    echo "expensive test"
-    exit 0
-  '';
-}
-```
-
-**`skipChecks`** skips by name via flake-parts configuration:
-
-```nix
-resultChecks.skipChecks = [ "my-test" ];
-```
-
-All three mechanisms produce the same result:
-empty outputs, no dependencies built, and `status="skip"` in the report.
-
-Eval checks skip the same way:
-`mkSkip` marks the whole check,
-and `skipChecks = [ "check:test" ]` skips a single test.
-Skipped eval tests are never evaluated;
-a skipped test may contain a `throw`.
 
 ## Eval Tests
 
@@ -269,6 +315,48 @@ resultChecks.checks.meta = resultChecks.mkEval {
 };
 ```
 
+## Skipping Checks
+
+There are three ways to skip a check:
+
+**`mkSkip`** wraps any check to skip it:
+
+```nix
+resultChecks.mkResult "my-test" ''
+  echo "expensive test"
+  exit 0
+''
+|> resultChecks.mkSkip
+```
+
+**`passthru.skip`** skips from within `mkResultWith`:
+
+```nix
+resultChecks.mkResultWith {
+  name = "result-my-test";
+  passthru.skip = true;
+  command = ''
+    echo "expensive test"
+    exit 0
+  '';
+}
+```
+
+**`skipChecks`** skips by name via flake-parts configuration:
+
+```nix
+resultChecks.skipChecks = [ "my-test" ];
+```
+
+All three mechanisms produce the same result:
+empty outputs, no dependencies built, and `status="skip"` in the report.
+
+Eval checks skip the same way:
+`mkSkip` marks the whole check,
+and `skipChecks = [ "check:test" ]` skips a single test.
+Skipped eval tests are never evaluated;
+a skipped test may contain a `throw`.
+
 ## Running Checks with nrc
 
 `nrc --flake .` follows the `resultChecks.<system>` convention:
@@ -310,23 +398,6 @@ mkSnapshot "my-test" {
   '';
 }
 <| checks.my-test
-```
-
-## Usage without flake-parts
-
-The overlay and flake module are available without a flake via `default.nix`:
-
-```nix
-let
-  nix-result-checks = import ./path/to/nix-result-checks;
-in
-{
-  # Apply the overlay to your pkgs
-  overlays = [ nix-result-checks.overlays.default ];
-
-  # Or import the flake module for use with flake-parts outside a flake
-  imports = [ nix-result-checks.flakeModules.default ];
-}
 ```
 
 ## Report Format

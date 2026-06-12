@@ -11,14 +11,15 @@
   { kind = "eval"; status; exitCode; stdout; stderr; }
   ```
 
-  where `status` is `"pass"`, `"fail"`, or `"skip"`. Failures carry a
-  formatted report in `stdout` and a summary in `stderr`, matching the
-  conventions of derivation-based checks. Entries are computed lazily:
-  a test's expression is only forced when its entry is, and skipped
-  tests are never forced at all.
+  where `status` is `"pass"`, `"fail"`, or `"skip"`.
+  Failures carry a formatted report in `stdout` and a summary in `stderr`,
+  matching the conventions of derivation-based checks.
+  Entries are computed lazily:
+  a test's expression is only forced when its entry is,
+  and skipped tests are never forced at all.
 
-  Skipping is controlled by `skip = true` on the check (set by
-  `mkSkip`) or by listing test names in `skipTests` on the check.
+  Skipping is controlled by `skip = true` on the check (set by `mkSkip`)
+  or by listing test names in `skipTests` on the check.
 
   # Type
 

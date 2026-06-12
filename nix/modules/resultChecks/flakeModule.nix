@@ -17,32 +17,6 @@
 
       isEval = value: value.kind or null == "eval";
 
-      drvChecks = lib.filterAttrs (_name: value: !isEval value) cfg.checks;
-      evalCheckSet = lib.filterAttrs (_name: value: isEval value) cfg.checks;
-
-      # Normalize derivation checks (after apply) to
-      # { key -> { check, suite } } for the report generator.
-      # Flat checks: key = name, suite = null.
-      # Suite checks: key = "suite:name", suite = suite name.
-      _flat = lib.concatMapAttrs (
-        outerName: value:
-        if value ? drvPath then
-          {
-            "${outerName}" = {
-              check = value;
-              suite = null;
-            };
-          }
-        else
-          lib.mapAttrs' (
-            checkName: check:
-            lib.nameValuePair "${outerName}:${checkName}" {
-              inherit check;
-              suite = outerName;
-            }
-          ) value
-      ) drvChecks;
-
       evalCheckType = lib.types.addCheck lib.types.attrs isEval // {
         name = "evalCheck";
         description = "eval check (mkEval)";
@@ -146,20 +120,10 @@
           '';
         };
 
-        reportGenerator = lib.mkOption {
-          type = with lib.types; functionTo package;
-          default = checks: pkgs.resultChecks.json.override { inherit checks; };
-          defaultText = lib.literalExpression "checks: pkgs.resultChecks.json.override { inherit checks; }";
-          description = ''
-            Function that generates the report package from the normalized
-            check set. Receives `{ key -> { check, suite } }` pairs.
-          '';
-        };
-
         report = lib.mkOption {
           type = lib.types.package;
-          default = cfg.reportGenerator _flat;
-          defaultText = lib.literalExpression "cfg.reportGenerator _flat";
+          default = pkgs.resultChecks.mkReport cfg.checks;
+          defaultText = lib.literalExpression "pkgs.resultChecks.mkReport cfg.checks";
           readOnly = true;
           description = ''
             The generated report package.
@@ -170,18 +134,10 @@
           '';
         };
 
-        reportChecks = lib.mkOption {
-          type = with lib.types; listOf str;
-          default = lib.attrNames _flat;
-          defaultText = lib.literalExpression "lib.attrNames _flat";
-          readOnly = true;
-          description = "Keys of the checks covered by the report.";
-        };
-
         evalChecks = lib.mkOption {
           type = with lib.types; lazyAttrsOf (lazyAttrsOf raw);
-          default = lib.mapAttrs (_name: pkgs.resultChecks.mkEntries) evalCheckSet;
-          defaultText = lib.literalExpression "lib.mapAttrs (_name: pkgs.resultChecks.mkEntries) evalCheckSet";
+          default = pkgs.resultChecks.mkEvalChecks cfg.checks;
+          defaultText = lib.literalExpression "pkgs.resultChecks.mkEvalChecks cfg.checks";
           readOnly = true;
           description = ''
             Per-test result entries of all eval checks, keyed by check

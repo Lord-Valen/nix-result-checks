@@ -5,15 +5,16 @@
 /**
   Declare a suite of pure Nix evaluation tests as an eval check.
 
-  An eval check is plain data — no derivation, no store access. Tests
-  are evaluated lazily, one attribute per test, so runners such as
-  `nrc` can shard them across `nix-eval-jobs` workers. Use
-  `mkEntries` to compute the per-test results.
+  An eval check is plain data — no derivation, no store access.
+  Tests are evaluated lazily, one attribute per test,
+  so runners such as `nrc` can shard them across `nix-eval-jobs` workers.
+  Use `mkEntries` to compute the per-test results.
 
-  Registered in `resultChecks.checks`, an eval check displays as a
-  suite with one entry per test. Use this for testing pure Nix
-  functions. For testing shell commands or build-time behaviour, use
-  `mkResult` or `mkSnapshot`.
+  Registered in `resultChecks.checks`,
+  an eval check displays as a suite with one entry per test.
+  Use this for testing pure Nix functions.
+  For testing shell commands or build-time behaviour,
+  use `mkResult` or `mkSnapshot`.
 
   # Type
 
@@ -24,10 +25,11 @@
   # Arguments
 
   tests
-  : Attribute set of test cases. Each entry must have `expr` (the
-    value under test) and `expected` (the expected value). Unlike
-    `lib.debug.runTests`, every attribute is a test regardless of
-    its name.
+  : Attribute set of test cases.
+    Each entry must have `expr` (the value under test)
+    and `expected` (the expected value).
+    Unlike `lib.debug.runTests`,
+    every attribute is a test regardless of its name.
 
   # Example
 

@@ -19,9 +19,19 @@ pub enum Source {
     Stdin,
     File(PathBuf),
     Flake(String),
-    Convention { flakeref: String, workers: usize },
-    Expr { expr: String, impure: bool },
-    NixFile { file: PathBuf, attr: Option<String> },
+    Convention {
+        flakeref: String,
+        workers: usize,
+    },
+    Expr {
+        expr: String,
+        impure: bool,
+    },
+    NixFile {
+        file: PathBuf,
+        attr: Option<String>,
+        workers: usize,
+    },
 }
 
 #[allow(clippy::needless_pass_by_value)]
@@ -45,9 +55,16 @@ fn stream(source: &Source, tx: &Sender<Event>) {
             Some(path) => open_and_stream(&path, tx),
             None => false,
         },
-        Source::NixFile { file, attr } => match nix_build_file(file, attr.as_deref(), tx) {
-            Some(path) => open_and_stream(&path, tx),
-            None => false,
+        Source::NixFile {
+            file,
+            attr,
+            workers,
+        } => match attr {
+            Some(attr) => match nix_build_file(file, Some(attr), tx) {
+                Some(path) => open_and_stream(&path, tx),
+                None => false,
+            },
+            None => stream_file_convention(file, *workers, tx),
         },
     };
     if !ended_on_doc {
@@ -89,12 +106,84 @@ fn stream_report(flakeref: &str, system: &str, tx: &Sender<Event>) {
     let Some(path) = nix_build(&[&runner::report_attr(flakeref, system)], false, tx) else {
         return;
     };
-    match File::open(&path).map(BufReader::new) {
+    stream_entries_from(&path, tx);
+}
+
+fn stream_entries_from(path: &Path, tx: &Sender<Event>) {
+    match File::open(path).map(BufReader::new) {
         Ok(reader) => {
             stream_entries(reader, tx);
         }
         Err(e) => {
             let _ = tx.send(Event::Error(e.into()));
+        }
+    }
+}
+
+/// File-mode convention: the file evaluates to { report; evalChecks; }.
+/// Mirrors the flake convention without flakes or nix-command.
+fn stream_file_convention(file: &Path, workers: usize, tx: &Sender<Event>) -> bool {
+    thread::scope(|scope| {
+        scope.spawn(|| {
+            if let Some(path) = nix_build_file(file, Some("report"), tx) {
+                stream_entries_from(&path, tx);
+            }
+        });
+        scope.spawn(|| stream_file_eval_checks(file, workers, tx));
+    });
+    false
+}
+
+fn stream_file_eval_checks(file: &Path, workers: usize, tx: &Sender<Event>) {
+    let args = runner::nej_file_args(&file.to_string_lossy(), workers);
+    match process::Command::new("nix-eval-jobs")
+        .args(&args)
+        .stdout(process::Stdio::piped())
+        .stderr(process::Stdio::piped())
+        .spawn()
+    {
+        Ok(child) => stream_nej(child, tx),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => file_eval_fallback(file, tx),
+        Err(e) => {
+            let _ = tx.send(Event::Error(e.into()));
+        }
+    }
+}
+
+/// Sequential fallback for file mode: nix-instantiate works without
+/// flakes or nix-command.
+fn file_eval_fallback(file: &Path, tx: &Sender<Event>) {
+    match process::Command::new("nix-instantiate")
+        .args(["--eval", "--strict", "--json"])
+        .arg(file)
+        .args(["-A", "evalChecks"])
+        .output()
+    {
+        Ok(o) if o.status.success() => send_tree_entries(&o.stdout, tx),
+        Ok(o) => {
+            let stderr = String::from_utf8_lossy(&o.stderr).into_owned();
+            let _ = tx.send(Event::Error(anyhow::anyhow!(
+                "nix-instantiate failed:\n{stderr}"
+            )));
+        }
+        Err(e) => {
+            let _ = tx.send(Event::Error(e.into()));
+        }
+    }
+}
+
+fn send_tree_entries(json: &[u8], tx: &Sender<Event>) {
+    let entries = serde_json::from_slice::<Value>(json)
+        .map_err(anyhow::Error::from)
+        .and_then(runner::entries_from_tree);
+    match entries {
+        Ok(entries) => {
+            for entry in entries {
+                let _ = tx.send(Event::Entry(entry));
+            }
+        }
+        Err(e) => {
+            let _ = tx.send(Event::Error(e));
         }
     }
 }
@@ -156,21 +245,7 @@ fn eval_fallback(flakeref: &str, system: &str, tx: &Sender<Event>) {
         .args(["eval", "--option", "eval-cache", "false", "--json", &attr])
         .output()
     {
-        Ok(o) if o.status.success() => {
-            let entries = serde_json::from_slice::<Value>(&o.stdout)
-                .map_err(anyhow::Error::from)
-                .and_then(runner::entries_from_tree);
-            match entries {
-                Ok(entries) => {
-                    for entry in entries {
-                        let _ = tx.send(Event::Entry(entry));
-                    }
-                }
-                Err(e) => {
-                    let _ = tx.send(Event::Error(e));
-                }
-            }
-        }
+        Ok(o) if o.status.success() => send_tree_entries(&o.stdout, tx),
         Ok(o) => {
             let stderr = String::from_utf8_lossy(&o.stderr).into_owned();
             let _ = tx.send(Event::Error(anyhow::anyhow!("nix eval failed:\n{stderr}")));

@@ -10,7 +10,13 @@
       ...
     }:
     let
-      inherit (pkgs.resultChecks) mkEval mkSkip mkEntries;
+      inherit (pkgs.resultChecks)
+        mkEval
+        mkSkip
+        mkEntries
+        mkEvalChecks
+        mkReport
+        ;
       module = (import ../../modules/resultChecks/flakeModule.nix).perSystem;
       evalCfg =
         cfg:
@@ -144,6 +150,38 @@
           };
         };
 
+        # The two halves of the data type, computed from one check set.
+        eval-halves = mkEval {
+          # mkReport covers the derivation half; eval checks pass
+          # through it untouched and unforced.
+          testReportIgnoresEvalChecks = {
+            expr = lib.isDerivation (mkReport {
+              fixture = mkEval {
+                t = {
+                  expr = throw "never forced";
+                  expected = 1;
+                };
+              };
+            });
+            expected = true;
+          };
+
+          # mkEvalChecks covers the eval half; derivation checks are
+          # ignored without being forced.
+          testEvalChecksIgnoreDrvChecks = {
+            expr = mkEvalChecks {
+              fixture = mkEval {
+                t = {
+                  expr = 1;
+                  expected = 1;
+                };
+              };
+              plain = pkgs.resultChecks.mkResult "plain" "exit 0";
+            };
+            expected.fixture.t = passEntry;
+          };
+        };
+
         eval-module = mkEval {
           testEvalChecksExposed = {
             expr =
@@ -209,19 +247,6 @@
             expected = true;
           };
 
-          testEvalChecksAbsentFromReportSet = {
-            expr =
-              (evalCfg {
-                checks.fixture = mkEval {
-                  t = {
-                    expr = 1;
-                    expected = 1;
-                  };
-                };
-                checks.plain = pkgs.resultChecks.mkResult "plain" "exit 0";
-              }).resultChecks.reportChecks;
-            expected = [ "plain" ];
-          };
         };
 
         # The select script nrc embeds for nix-eval-jobs: wraps each pre-entry

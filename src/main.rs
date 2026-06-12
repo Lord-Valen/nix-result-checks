@@ -44,7 +44,10 @@ struct Args {
     #[arg(short, long)]
     expr: Option<String>,
 
-    /// Evaluate a Nix file (uses nix-build, no nix-command required).
+    /// A Nix file evaluating to { report; evalChecks; }, run like the
+    /// flake convention but through nix-build and nix-instantiate (no
+    /// flakes or nix-command required). With -A, builds that attribute
+    /// as a report instead.
     #[arg(short, long, conflicts_with_all = ["flake", "expr"])]
     file: Option<PathBuf>,
 
@@ -111,6 +114,7 @@ fn resolve_source(args: Args) -> anyhow::Result<(Source, WatchMode)> {
             Source::NixFile {
                 file,
                 attr: args.attr,
+                workers: args.workers,
             },
             dir_watch(),
         ))

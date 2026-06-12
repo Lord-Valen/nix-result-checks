@@ -26,6 +26,8 @@ let
       - [mkEval](helpers/mkEval.md)
       - [mkSkip](helpers/mkSkip.md)
       - [mkEntries](helpers/mkEntries.md)
+      - [mkReport](helpers/mkReport.md)
+      - [mkEvalChecks](helpers/mkEvalChecks.md)
     - [Generators]()
       - [json](generators/json.md)
     - [Options](options.md)
@@ -33,6 +35,8 @@ let
   helpers = {
     mkSkip = ../../build-support/mkSkip.nix;
     mkEntries = ../../build-support/mkEntries.nix;
+    mkEvalChecks = ../../build-support/mkEvalChecks.nix;
+    mkReport = ../../build-support/mkReport.nix;
     mkResultWith = ../../build-support/mkResultWith.nix;
     mkResult = ../../build-support/mkResult.nix;
     mkSnapshot = ../../build-support/mkSnapshot.nix;

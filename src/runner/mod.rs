@@ -104,17 +104,23 @@ pub fn eval_checks_attr(flakeref: &str, system: &str) -> String {
     format!("{flakeref}#resultChecks.{system}.evalChecks")
 }
 
+/// The select script for file mode, where the root is the convention
+/// attrset itself rather than a flake fragment: project out evalChecks
+/// before wrapping.
+pub fn file_select() -> String {
+    format!("root: ({SELECT}) root.evalChecks")
+}
+
 /// The attribute holding the derivation-check report for `system`.
 pub fn report_attr(flakeref: &str, system: &str) -> String {
     format!("{flakeref}#resultChecks.{system}.report")
 }
 
-/// Arguments for the parallel nix-eval-jobs invocation.
-pub fn nej_args(flakeref: &str, system: &str, workers: usize) -> Vec<String> {
+// Eval results must reflect the current tree, not a previously cached
+// verdict; a cached failure from an interrupted run would otherwise
+// wedge every later one.
+fn nej_base_args(workers: usize) -> Vec<String> {
     [
-        // Eval results must reflect the current tree, not a previously
-        // cached verdict; a cached failure from an interrupted run would
-        // otherwise wedge every later one.
         "--option",
         "eval-cache",
         "false",
@@ -122,16 +128,39 @@ pub fn nej_args(flakeref: &str, system: &str, workers: usize) -> Vec<String> {
         "--force-recurse",
         "--workers",
         &workers.to_string(),
-        "--select",
-        SELECT,
-        "--apply",
-        APPLY,
-        "--flake",
-        &eval_checks_attr(flakeref, system),
     ]
     .iter()
     .map(ToString::to_string)
     .collect()
+}
+
+/// Arguments for the parallel nix-eval-jobs invocation in flake mode.
+pub fn nej_args(flakeref: &str, system: &str, workers: usize) -> Vec<String> {
+    let mut args = nej_base_args(workers);
+    args.extend(
+        [
+            "--select",
+            SELECT,
+            "--apply",
+            APPLY,
+            "--flake",
+            &eval_checks_attr(flakeref, system),
+        ]
+        .iter()
+        .map(ToString::to_string),
+    );
+    args
+}
+
+/// Arguments for the parallel nix-eval-jobs invocation in file mode.
+pub fn nej_file_args(file: &str, workers: usize) -> Vec<String> {
+    let mut args = nej_base_args(workers);
+    args.extend(
+        ["--select", &file_select(), "--apply", APPLY, file]
+            .iter()
+            .map(ToString::to_string),
+    );
+    args
 }
 
 /// The Nix system identifier of the running binary.

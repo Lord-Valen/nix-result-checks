@@ -5,13 +5,16 @@
 /**
   Mark a check as skipped.
 
-  For result check derivations, clears all build inputs, replaces the
-  build command with a no-op, and sets `passthru.skip = true`, which
-  generators use to report the check as skipped rather than passed or
-  failed.
+  For result check derivations,
+  clears all build inputs,
+  replaces the build command with a no-op,
+  and sets `passthru.skip = true`,
+  which generators use to report the check as skipped
+  rather than passed or failed.
 
-  For eval checks, sets `skip = true`; `mkEntries` then reports every
-  test as skipped without forcing its expression.
+  For eval checks, sets `skip = true`;
+  `mkEntries` then reports every test as skipped
+  without forcing its expression.
 
   # Type
 
@@ -22,8 +25,9 @@
   # Arguments
 
   check
-  : A result check derivation produced by `mkResult`, `mkResultWith`,
-    or `mkSnapshot`, or an eval check produced by `mkEval`.
+  : A result check derivation
+    produced by `mkResult`, `mkResultWith`, or `mkSnapshot`,
+    or an eval check produced by `mkEval`.
 
   # Example
 
