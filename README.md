@@ -10,13 +10,34 @@ A derivation-based testing framework for Nix.
 
 ## Design Principles
 
-**Result monad.** Every check produces a derivation with four outputs: `out` (artifacts), `stdout`, `stderr`, and `exitCode`. The derivation itself always succeeds — failures are captured in `exitCode` rather than propagated. This means all checks build in parallel regardless of failures.
+**Result monad.**
+Every build check produces a derivation with four outputs:
+`out` (artifacts), `stdout`, `stderr`, and `exitCode`.
+The derivation itself always succeeds:
+failures are captured in `exitCode` rather than propagated.
+This means all checks build in parallel regardless of failures.
 
-**Uniform interface.** All check types (`mkResult`, `mkSnapshot`, `mkEval`) produce derivations with the same shape. Generators and tooling can consume any check without special-casing.
+**Tests at their own level.**
+Build behaviour is tested by derivations (`mkResult`, `mkSnapshot`);
+pure Nix logic is tested at evaluation time (`mkEval`),
+as plain data that never touches the store.
+Runners evaluate eval tests in parallel via nix-eval-jobs.
 
-**Composable skip.** Skipping is orthogonal to check type. Any check can be skipped via `mkSkip`, the `passthru.skip` attribute, or the flake-parts `skipChecks` option. Skipped checks produce empty outputs and do not build their dependencies.
+**Uniform entries.**
+Every check, built or evaluated,
+reduces to the same entry shape
+(`kind`, `status`, `exitCode`, `stdout`, `stderr`).
+Generators and tooling consume any check without special-casing.
 
-**Pluggable reporting.** Check results are plain derivations. Generators transform them into reports in any format. The default generator produces JSON.
+**Composable skip.**
+Skipping is orthogonal to check type.
+Any check can be skipped via `mkSkip`, the `passthru.skip` attribute,
+or the flake-parts `skipChecks` option.
+Skipped checks produce empty outputs and do not build their dependencies.
+
+**Pluggable reporting.**
+Generators transform derivation check results into reports in any format.
+The default generator produces JSON.
 
 ## API
 
@@ -24,20 +45,21 @@ All functions are available under `pkgs.resultChecks` via the overlay.
 
 ### Build Support
 
-| Function | Signature | Description |
-|---|---|---|
-| `mkResult` | `name: command: drv` | Run a command, capturing stdout, stderr, and exit code. Sets `passthru.kind = "result"`. |
-| `mkResultWith` | `attrs: drv` | Low-level `mkResult`. Pass `command` for capture-wrapped execution or `buildCommand` for full control. All `mkDerivation` attrs are supported. |
-| `mkSnapshot` | `name: { exitCode?, stdout?, stderr? }: resultCheck: drv` | Assert a result check's outputs match expected values. Comparison is byte-exact via `cmp`. Sets `passthru.kind = "snapshot"`. |
-| `mkSnapshotWith` | `attrs: drv` | Low-level `mkSnapshot`. Accepts all `mkResultWith` attrs alongside snapshot-specific keys. |
-| `mkEval` | `name: tests: drv` | Run `lib.debug.runTests`-style eval tests (`{ expr; expected; }`). Formats failures as `FAIL: name / expected: X / got: Y`. Sets `passthru.kind = "eval"`. |
-| `mkSkip` | `drv: drv` | Skip any check. Overrides the derivation to produce empty outputs, clearing `buildInputs` and `nativeBuildInputs` so dependencies are not built. |
+| Function         | Signature                                                 | Description                                                                                                                                                                            |
+| ---------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mkResult`       | `name: command: drv`                                      | Run a command, capturing stdout, stderr, and exit code. Sets `passthru.kind = "result"`.                                                                                               |
+| `mkResultWith`   | `attrs: drv`                                              | Low-level `mkResult`. Pass `command` for capture-wrapped execution or `buildCommand` for full control. All `mkDerivation` attrs are supported.                                         |
+| `mkSnapshot`     | `name: { exitCode?, stdout?, stderr? }: resultCheck: drv` | Assert a result check's outputs match expected values. Comparison is byte-exact via `cmp`. Sets `passthru.kind = "snapshot"`.                                                          |
+| `mkSnapshotWith` | `attrs: drv`                                              | Low-level `mkSnapshot`. Accepts all `mkResultWith` attrs alongside snapshot-specific keys.                                                                                             |
+| `mkEval`         | `tests: evalCheck`                                        | Declare eval tests (`{ expr; expected; }`, the `lib.debug.runTests` format). Returns plain data tagged `kind = "eval"` — no derivation. Every attribute is a test, regardless of name. |
+| `mkEntries`      | `evalCheck: attrs`                                        | Compute per-test entries (`{ kind; status; exitCode; stdout; stderr; }`) for an eval check, lazily: a test only evaluates when its entry is forced.                                   |
+| `mkSkip`         | `(drv \| evalCheck) -> same`                              | Skip any check. Derivations are overridden to produce empty outputs with no dependencies built; eval checks are marked so their tests are never evaluated.                             |
 
 ### Generators
 
-| Package | Description |
-|---|---|
-| `json` | Generates a JSON report from check results. Override `checks` to provide the check set. |
+| Package | Description                                                                             |
+| ------- | --------------------------------------------------------------------------------------- |
+| `json`  | Generates a JSON report from check results. Override `checks` to provide the check set. |
 
 ## Usage with flake-parts
 
@@ -82,18 +104,30 @@ Add `nix-result-checks` as an input and import the flake module:
 
 ### flake-parts Options
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `resultChecks.enable` | `bool` | `true` | Enable the module. |
-| `resultChecks.checks` | `attrsOf (package \| attrsOf package)` | `{}` | Flat checks or suites. Flat: `name = drv`. Suite: `suite-name = { check-name = drv; ... }`. |
-| `resultChecks.skipChecks` | `listOf str` | `[]` | Check keys to skip. Flat checks: `"name"`. Suite checks: `"suite:name"`. |
-| `resultChecks.enableFlakeChecks` | `bool` | `true` | Bridge non-skipped checks into `flake.checks` so `nix flake check` reports failures. |
-| `resultChecks.reportGenerator` | `checks -> package` | JSON generator | Function producing a report package from the checks attrset. |
-| `resultChecks.report` | `package` | (derived) | The generated report. Read-only. |
+| Option                           | Type                                                | Default        | Description                                                                                                                              |
+| -------------------------------- | --------------------------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `resultChecks.enable`            | `bool`                                              | `true`         | Enable the module.                                                                                                                       |
+| `resultChecks.checks`            | `attrsOf (package \| evalCheck \| attrsOf package)` | `{}`           | Flat checks, eval checks, or suites. Flat: `name = drv`. Eval: `name = mkEval { ... }`. Suite: `suite-name = { check-name = drv; ... }`. |
+| `resultChecks.skipChecks`        | `listOf str`                                        | `[]`           | Check keys to skip. Flat checks: `"name"`. Suite checks and eval tests: `"suite:name"`.                                                  |
+| `resultChecks.enableFlakeChecks` | `bool`                                              | `true`         | Add the aggregate `resultChecks` gate to `flake.checks`.                                                                                 |
+| `resultChecks.reportGenerator`   | `checks -> package`                                 | JSON generator | Function producing a report package from the checks attrset.                                                                             |
+| `resultChecks.report`            | `package`                                           | (derived)      | The generated report, covering derivation checks only. Read-only.                                                                        |
+| `resultChecks.reportChecks`      | `listOf str`                                        | (derived)      | Keys of the checks covered by the report. Read-only.                                                                                     |
+| `resultChecks.evalChecks`        | `lazyAttrsOf (lazyAttrsOf raw)`                     | (derived)      | Per-test entries of all eval checks, keyed by check then test name. Computed lazily so runners can force them in parallel. Read-only.    |
+
+The module also defines the reserved flake output
+`resultChecks.<system> = { report; evalChecks; }` —
+the single attribute runners need.
+If you use flake-parts partitions,
+add `resultChecks` to `partitionedAttrs` or the output is silently dropped.
 
 ### Flake Check Integration
 
-Non-skipped checks are automatically bridged into `flake.checks`, so `nix flake check` reports failures:
+A single aggregate `resultChecks` check is added to `flake.checks`.
+It depends on every derivation check (built in parallel by the scheduler),
+bakes in eval verdicts at evaluation time,
+prints the full per-check report in its build log,
+and fails if any check failed:
 
 ```console
 $ nix flake check
@@ -101,7 +135,8 @@ $ nix flake check
 
 ## Test Orchestration
 
-Tests can depend on other tests via `nativeBuildInputs` in `mkResultWith`. This creates build-time dependencies, ensuring ordering:
+Tests can depend on other tests via `nativeBuildInputs` in `mkResultWith`.
+This creates build-time dependencies, ensuring ordering:
 
 ```nix
 {
@@ -124,13 +159,17 @@ Tests can depend on other tests via `nativeBuildInputs` in `mkResultWith`. This 
 }
 ```
 
-`integration` will not build until `unit-tests` completes. Since results always succeed as derivations (failures are captured in `exitCode`), dependent tests can inspect the exit code, log, or artifacts of their dependencies and decide how to proceed.
+`integration` will not build until `unit-tests` completes.
+Since results always succeed as derivations
+(failures are captured in `exitCode`),
+dependent tests can inspect the exit code, log,
+or artifacts of their dependencies and decide how to proceed.
 
 ## Skipping Checks
 
 There are three ways to skip a check:
 
-**`mkSkip` function** — wrap any check to skip it:
+**`mkSkip`** wraps any check to skip it:
 
 ```nix
 resultChecks.mkResult "my-test" ''
@@ -140,7 +179,7 @@ resultChecks.mkResult "my-test" ''
 |> resultChecks.mkSkip
 ```
 
-**`passthru.skip` attribute** — skip via `mkResultWith`:
+**`passthru.skip`** skips from within `mkResultWith`:
 
 ```nix
 resultChecks.mkResultWith {
@@ -153,20 +192,28 @@ resultChecks.mkResultWith {
 }
 ```
 
-**`skipChecks` option** — skip by name via flake-parts configuration:
+**`skipChecks`** skips by name via flake-parts configuration:
 
 ```nix
 resultChecks.skipChecks = [ "my-test" ];
 ```
 
-All three mechanisms produce the same result: empty outputs, no dependencies built, and `status="skip"` in the report.
+All three mechanisms produce the same result:
+empty outputs, no dependencies built, and `status="skip"` in the report.
+
+Eval checks skip the same way:
+`mkSkip` marks the whole check,
+and `skipChecks = [ "check:test" ]` skips a single test.
+Skipped eval tests are never evaluated;
+a skipped test may contain a `throw`.
 
 ## Eval Tests
 
-`mkEval` runs pure Nix eval-time tests using the same `{ expr; expected; }` format as `lib.debug.runTests`:
+`mkEval` declares pure Nix eval-time tests
+using the same `{ expr; expected; }` format as `lib.debug.runTests`:
 
 ```nix
-resultChecks.mkEval "my-eval-tests" {
+resultChecks.checks.my-lib = resultChecks.mkEval {
   testAddition = {
     expr = 1 + 1;
     expected = 2;
@@ -175,10 +222,20 @@ resultChecks.mkEval "my-eval-tests" {
     expr = "hello" + " " + "world";
     expected = "hello world";
   };
-}
+};
 ```
 
-On failure, stdout contains a formatted report:
+An eval check is plain data — no derivation, no store access.
+Registered in `resultChecks.checks`,
+it displays as a suite with one entry per test,
+and runners evaluate the tests in parallel through nix-eval-jobs.
+
+Unlike `lib.debug.runTests`, every attribute is a test:
+a value that is not `{ expr, expected }`-shaped fails loudly
+instead of being filtered by name.
+Keep helpers in a `let` binding.
+
+A failing test's entry carries a formatted report in `stdout`:
 
 ```
 FAIL: testAddition
@@ -186,13 +243,63 @@ FAIL: testAddition
   got:      2
 ```
 
-On success, all outputs are empty (exitCode is `"0"`). The failure count is written to stderr as a convenience (e.g. `"2 test(s) failed"`).
+On success, `stdout` and `stderr` are empty and `exitCode` is `"0"`.
+
+To snapshot eval results,
+pin the entries in another eval test.
+`mkEntries` makes the verdicts themselves plain values:
+
+```nix
+resultChecks.checks.meta = resultChecks.mkEval {
+  testFailureFormatting = {
+    expr = resultChecks.mkEntries (resultChecks.mkEval {
+      broken = {
+        expr = 1 + 1;
+        expected = 3;
+      };
+    });
+    expected.broken = {
+      kind = "eval";
+      status = "fail";
+      exitCode = "1";
+      stdout = "FAIL: broken\n  expected: 3\n  got:      2\n";
+      stderr = "1 test(s) failed\n";
+    };
+  };
+};
+```
+
+## Running Checks with nrc
+
+`nrc --flake .` follows the `resultChecks.<system>` convention:
+it builds the report (derivation checks)
+while nix-eval-jobs forces the eval test entries in parallel,
+and merges both streams into one view.
+`--workers`/`-j` controls eval parallelism.
+Without nix-eval-jobs on PATH,
+eval checks are fetched sequentially via `nix eval --json` instead.
+The packaged `nrc` wraps nix-eval-jobs,
+so the fallback only applies to ad-hoc builds.
+
+`nrc --flake .#some-attr` builds that attribute as a report file
+and skips the eval side.
+`nrc --stream --flake .` emits the merged results as newline-delimited JSON
+and exits non-zero on failure —
+the complete report for CI without building one store artifact per run.
 
 ## Output Conventions
 
-All outputs use `printf '%s'` — files contain exactly the bytes written, with no added trailing newlines. User command output (stdout/stderr from `mkResult`) is captured verbatim via shell redirection. Exit codes are stored as plain digit strings (e.g. `0`, not `0\n`).
+All outputs use `printf '%s'`:
+files contain exactly the bytes written,
+with no added trailing newlines.
+User command output (stdout/stderr from `mkResult`)
+is captured verbatim via shell redirection.
+Exit codes are stored as plain digit strings (e.g. `0`, not `0\n`).
 
-`mkSnapshot` comparison is byte-exact via `cmp`. When writing expected values for commands that use `echo` (which adds `\n`), use multiline `''` strings with the closing `''` on its own line — this naturally includes the trailing newline:
+`mkSnapshot` comparison is byte-exact via `cmp`.
+When writing expected values for commands that use `echo` (which adds `\n`),
+use multiline `''` strings with the closing `''` on its own line,
+which naturally includes the trailing newline:
 
 ```nix
 mkSnapshot "my-test" {
@@ -224,7 +331,8 @@ in
 
 ## Report Format
 
-The default JSON report is newline-delimited JSON. Each line is one check:
+The default JSON report is newline-delimited JSON.
+Each line is one check:
 
 ```json
 {"kind":"result","status":"pass","name":"my-test","suite":null,"exitCode":"0","stdout":"test output\n","stderr":"","drvPath":"/nix/store/..."}
@@ -233,6 +341,32 @@ The default JSON report is newline-delimited JSON. Each line is one check:
 {"kind":"result","status":"pass","name":"schema","suite":"db","exitCode":"0","stdout":"","stderr":"","drvPath":"/nix/store/..."}
 ```
 
-`kind` is one of `result`, `snapshot`, `eval`. `status` is one of `pass`, `fail`, `skip`. `suite` is the suite name for grouped checks, or `null` for flat checks.
+`kind` is one of `result`, `snapshot`, `eval`.
+`status` is one of `pass`, `fail`, `skip`.
+`suite` is the suite name for grouped checks,
+or `null` for flat checks.
 
-The `drv` field is the store path of the check derivation. It is useful for locating the derivation's outputs directly (e.g. `${drv.stdout}`, `${drv.stderr}`). Note that `nix log <drvPath>` shows the builder's own stderr — not the command output, which is always redirected into the derivation's output files.
+The report file covers derivation checks only;
+eval check entries travel through `resultChecks.<system>.evalChecks`
+and appear alongside report entries in nrc and `--stream` output
+without a `drvPath`: there is no derivation.
+
+The `drv` field is the store path of the check derivation.
+It is useful for locating the derivation's outputs directly
+(e.g. `${drv.stdout}`, `${drv.stderr}`).
+Note that `nix log <drvPath>` shows the builder's own stderr —
+not the command output,
+which is always redirected into the derivation's output files.
+
+## Development
+
+Library code (`nix/`, excluding `nix/dev/`)
+must evaluate with stable Nix plus only the `nix-command` and `flakes` features.
+Consumers are never required to enable anything else.
+
+Experimental syntax — currently the pipe operators `|>` and `<|` —
+is permitted only inside `nix/dev/`.
+CI enables `pipe-operators` solely because
+building the partitioned docs package parses the dev tests.
+Doc-comment examples may show pipe operators:
+comments are not parsed.
