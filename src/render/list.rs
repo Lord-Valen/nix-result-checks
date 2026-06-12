@@ -83,9 +83,17 @@ mod tests {
 
 fn count_spans(pass: usize, fail: usize, skip: usize, selected: bool) -> Vec<Span<'static>> {
     let (ps, fs, ss) = if selected {
-        (Style::new().bg(Color::Green), Style::new().bg(Color::Red), Style::new().bg(Color::DarkGray))
+        (
+            Style::new().bg(Color::Green),
+            Style::new().bg(Color::Red),
+            Style::new().bg(Color::DarkGray),
+        )
     } else {
-        (Style::new().fg(Color::Green), Style::new().fg(Color::Red), Style::new().fg(Color::DarkGray))
+        (
+            Style::new().fg(Color::Green),
+            Style::new().fg(Color::Red),
+            Style::new().fg(Color::DarkGray),
+        )
     };
     vec![
         Span::styled(format!("✓{pass}"), ps),
@@ -158,9 +166,5 @@ pub fn render_list(frame: &mut Frame, app: &App, ui: &Ui, area: Rect) {
     let mut state = ListState::default();
     state.select(ui.selected);
 
-    frame.render_stateful_widget(
-        List::new(items),
-        inner,
-        &mut state,
-    );
+    frame.render_stateful_widget(List::new(items), inner, &mut state);
 }

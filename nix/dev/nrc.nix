@@ -14,6 +14,7 @@
           (craneLib.fileset.commonCargoSources ../../.)
           ../../keymaps
           ../../src/render/snapshots
+          ../../src/runner/select.nix
         ];
       };
       cargoArtifacts = craneLib.buildDepsOnly { inherit src; };
@@ -22,6 +23,11 @@
       packages.nrc-dev = craneLib.buildPackage {
         inherit src cargoArtifacts;
         doCheck = false;
+        nativeBuildInputs = [ pkgs.makeWrapper ];
+        postInstall = ''
+          wrapProgram $out/bin/nrc \
+            --prefix PATH : ${lib.makeBinPath [ pkgs.nix-eval-jobs ]}
+        '';
       };
       checks.nrc-build = craneLib.buildPackage { inherit src cargoArtifacts; };
     };

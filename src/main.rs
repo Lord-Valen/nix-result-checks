@@ -9,6 +9,7 @@ mod config;
 mod event;
 mod input;
 mod render;
+mod runner;
 mod stream;
 mod ui;
 
@@ -28,9 +29,16 @@ use ui::Ui;
 #[derive(Parser)]
 #[command(about = "nix-result-checks TUI report viewer")]
 struct Args {
-    /// Evaluate a flake and watch for changes.
+    /// A flake reference (e.g. `.`) to run via the resultChecks
+    /// convention: builds resultChecks.<system>.report and evaluates
+    /// resultChecks.<system>.evalChecks through nix-eval-jobs. With a
+    /// fragment (e.g. `.#attr`) builds that attribute as a report.
     #[arg(short = 'F', long)]
     flake: Option<String>,
+
+    /// Eval workers for nix-eval-jobs (convention mode).
+    #[arg(short = 'j', long, default_value_t = 8)]
+    workers: usize,
 
     /// Evaluate a Nix expression and watch for changes.
     #[arg(short, long)]
@@ -79,7 +87,17 @@ fn resolve_source(args: Args) -> anyhow::Result<(Source, WatchMode)> {
         }
     };
     if let Some(attr) = args.flake {
-        Ok((Source::Flake(attr), dir_watch()))
+        if attr.contains('#') {
+            Ok((Source::Flake(attr), dir_watch()))
+        } else {
+            Ok((
+                Source::Convention {
+                    flakeref: attr,
+                    workers: args.workers,
+                },
+                dir_watch(),
+            ))
+        }
     } else if let Some(expr) = args.expr {
         Ok((
             Source::Expr {

@@ -3,20 +3,23 @@
 // SPDX-License-Identifier: MIT
 
 use std::fs::File;
-use std::io::{self, BufReader, Read};
+use std::io::{self, BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::process;
 use std::sync::mpsc::{Receiver, Sender};
+use std::thread;
 
 use serde_json::Value;
 
 use crate::app::CheckEntry;
 use crate::event::Event;
+use crate::runner;
 
 pub enum Source {
     Stdin,
     File(PathBuf),
     Flake(String),
+    Convention { flakeref: String, workers: usize },
     Expr { expr: String, impure: bool },
     NixFile { file: PathBuf, attr: Option<String> },
 }
@@ -37,6 +40,7 @@ fn stream(source: &Source, tx: &Sender<Event>) {
             Some(path) => open_and_stream(&path, tx),
             None => false,
         },
+        Source::Convention { flakeref, workers } => stream_convention(flakeref, *workers, tx),
         Source::Expr { expr, impure } => match nix_build(&["--expr", expr], *impure, tx) {
             Some(path) => open_and_stream(&path, tx),
             None => false,
@@ -57,6 +61,122 @@ fn open_and_stream(path: &Path, tx: &Sender<Event>) -> bool {
         Err(e) => {
             let _ = tx.send(Event::Error(e.into()));
             false
+        }
+    }
+}
+
+/// Stream both halves of the resultChecks convention: the report (built
+/// derivation checks) and the eval checks (forced in parallel by
+/// nix-eval-jobs). The two run concurrently; one Done is sent by the
+/// caller after both complete, so report document boundaries must not
+/// prune the eval entries arriving alongside.
+fn stream_convention(flakeref: &str, workers: usize, tx: &Sender<Event>) -> bool {
+    let system = match runner::current_system() {
+        Ok(system) => system,
+        Err(e) => {
+            let _ = tx.send(Event::Error(e));
+            return false;
+        }
+    };
+    thread::scope(|scope| {
+        scope.spawn(|| stream_report(flakeref, system, tx));
+        scope.spawn(|| stream_eval_checks(flakeref, system, workers, tx));
+    });
+    false
+}
+
+fn stream_report(flakeref: &str, system: &str, tx: &Sender<Event>) {
+    let Some(path) = nix_build(&[&runner::report_attr(flakeref, system)], false, tx) else {
+        return;
+    };
+    match File::open(&path).map(BufReader::new) {
+        Ok(reader) => {
+            stream_entries(reader, tx);
+        }
+        Err(e) => {
+            let _ = tx.send(Event::Error(e.into()));
+        }
+    }
+}
+
+fn stream_eval_checks(flakeref: &str, system: &str, workers: usize, tx: &Sender<Event>) {
+    let args = runner::nej_args(flakeref, system, workers);
+    match process::Command::new("nix-eval-jobs")
+        .args(&args)
+        .stdout(process::Stdio::piped())
+        .stderr(process::Stdio::piped())
+        .spawn()
+    {
+        Ok(child) => stream_nej(child, tx),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => eval_fallback(flakeref, system, tx),
+        Err(e) => {
+            let _ = tx.send(Event::Error(e.into()));
+        }
+    }
+}
+
+fn stream_nej(mut child: process::Child, tx: &Sender<Event>) {
+    if let Some(stdout) = child.stdout.take() {
+        for line in BufReader::new(stdout).lines() {
+            match line {
+                Ok(line) if line.trim().is_empty() => {}
+                Ok(line) => match runner::entry_from_line(&line) {
+                    Ok(entry) => {
+                        let _ = tx.send(Event::Entry(entry));
+                    }
+                    Err(e) => {
+                        let _ = tx.send(Event::Error(e));
+                    }
+                },
+                Err(e) => {
+                    let _ = tx.send(Event::Error(e.into()));
+                }
+            }
+        }
+    }
+    match child.wait_with_output() {
+        Ok(o) if !o.status.success() => {
+            let stderr = String::from_utf8_lossy(&o.stderr).into_owned();
+            let _ = tx.send(Event::Error(anyhow::anyhow!(
+                "nix-eval-jobs failed:\n{stderr}"
+            )));
+        }
+        Ok(_) => {}
+        Err(e) => {
+            let _ = tx.send(Event::Error(e.into()));
+        }
+    }
+}
+
+/// Sequential fallback when nix-eval-jobs is not on PATH: fetch the whole
+/// evalChecks tree in one `nix eval --json` call.
+fn eval_fallback(flakeref: &str, system: &str, tx: &Sender<Event>) {
+    let attr = runner::eval_checks_attr(flakeref, system);
+    match process::Command::new("nix")
+        .args(["eval", "--option", "eval-cache", "false", "--json", &attr])
+        .output()
+    {
+        Ok(o) if o.status.success() => {
+            let entries = serde_json::from_slice::<Value>(&o.stdout)
+                .map_err(anyhow::Error::from)
+                .and_then(runner::entries_from_tree);
+            match entries {
+                Ok(entries) => {
+                    for entry in entries {
+                        let _ = tx.send(Event::Entry(entry));
+                    }
+                }
+                Err(e) => {
+                    let _ = tx.send(Event::Error(e));
+                }
+            }
+        }
+        Ok(o) => {
+            let stderr = String::from_utf8_lossy(&o.stderr).into_owned();
+            let _ = tx.send(Event::Error(anyhow::anyhow!("nix eval failed:\n{stderr}")));
+        }
+        Err(e) => {
+            let _ = tx.send(Event::Error(e.into()));
         }
     }
 }
@@ -109,6 +229,16 @@ fn nix_build_file(file: &Path, attr: Option<&str>, tx: &Sender<Event>) -> Option
 }
 
 fn stream_reader<R: Read>(reader: R, tx: &Sender<Event>) -> bool {
+    stream_json(reader, tx, true)
+}
+
+/// Like `stream_reader`, but document boundaries do not emit Done.
+/// Used when entries from several sources share one generation.
+fn stream_entries<R: Read>(reader: R, tx: &Sender<Event>) -> bool {
+    stream_json(reader, tx, false)
+}
+
+fn stream_json<R: Read>(reader: R, tx: &Sender<Event>, done_on_doc: bool) -> bool {
     let iter = serde_json::Deserializer::from_reader(reader).into_iter::<Value>();
     let mut ended_on_doc = false;
     for result in iter {
@@ -117,8 +247,10 @@ fn stream_reader<R: Read>(reader: R, tx: &Sender<Event>) -> bool {
                 for v in arr {
                     send_entry(v, tx);
                 }
-                let _ = tx.send(Event::Done);
-                ended_on_doc = true;
+                if done_on_doc {
+                    let _ = tx.send(Event::Done);
+                }
+                ended_on_doc = done_on_doc;
             }
             Ok(other) => {
                 send_entry(other, tx);

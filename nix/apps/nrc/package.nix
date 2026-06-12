@@ -4,15 +4,26 @@
 
 {
   lib,
+  makeWrapper,
+  nix-eval-jobs,
   rustPlatform,
 }:
 rustPlatform.buildRustPackage {
   pname = "nrc";
-  version = "0.1.0";
+  version = "2.0.0";
 
   src = ../../../.;
 
   cargoLock.lockFile = ../../../Cargo.lock;
+
+  nativeBuildInputs = [ makeWrapper ];
+
+  # nix-eval-jobs powers the parallel evalChecks path in flake
+  # convention mode; without it nrc falls back to sequential nix eval.
+  postInstall = ''
+    wrapProgram $out/bin/nrc \
+      --prefix PATH : ${lib.makeBinPath [ nix-eval-jobs ]}
+  '';
 
   meta.mainProgram = "nrc";
 }

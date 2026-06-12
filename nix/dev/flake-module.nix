@@ -39,7 +39,7 @@ in
         type = "app";
         program = toString (
           pkgs.writeShellScript "run-checks" ''
-            ${config.packages.nrc-dev}/bin/nrc --stream --watch --flake .#checks-report
+            exec ${config.packages.nrc-dev}/bin/nrc --stream --watch --flake .
           ''
         );
       };
@@ -47,7 +47,7 @@ in
         type = "app";
         program = toString (
           pkgs.writeShellScript "nrc" ''
-            ${pkgs.resultChecks.nrc}/bin/nrc ${config.resultChecks.report}
+            exec ${lib.getExe pkgs.resultChecks.nrc} --flake .
           ''
         );
       };
