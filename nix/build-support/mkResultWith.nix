@@ -3,15 +3,17 @@
 # SPDX-License-Identifier: MIT
 
 /**
-  Low-level result check builder. Prefer `mkResult` for most use cases.
+  Low-level result check builder.
+  Prefer `mkResult` for most use cases.
 
-  Produces a derivation with four outputs: `out` (sentinel), `stdout`,
-  `stderr`, and `exitCode`. The `command` attribute is a shell script body
-  whose stdout, stderr, and exit code are captured automatically. The
-  derivation always exits successfully.
+  Produces a derivation with four outputs:
+  `out` (sentinel), `stdout`, `stderr`, and `exitCode`.
+  The `command` attribute is a shell script body
+  whose stdout, stderr, and exit code are captured automatically.
+  The derivation always exits successfully.
 
-  For full control over the build script, use `buildCommand` directly
-  (bypasses capture wrapping).
+  For full control over the build script,
+  use `buildCommand` directly (bypasses capture wrapping).
 
   If `passthru.skip` is `true`, delegates to `mkSkip` automatically.
 
@@ -24,9 +26,9 @@
   # Arguments
 
   attrs
-  : Attribute set passed to `stdenvNoCC.mkDerivation`. Required keys: `name`
-    and either `command` or `buildCommand`. All other `mkDerivation` keys are
-    supported.
+  : Attribute set passed to `stdenvNoCC.mkDerivation`.
+    Required keys: `name` and either `command` or `buildCommand`.
+    All other `mkDerivation` keys are supported.
 
   # Example
 

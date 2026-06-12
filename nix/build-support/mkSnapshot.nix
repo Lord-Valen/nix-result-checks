@@ -5,11 +5,13 @@
 /**
   Assert the outputs of a result check match expected values.
 
-  Compares `exitCode`, `stdout`, and/or `stderr` of the wrapped check against
-  expected strings. Any mismatch is reported to the snapshot's own `stderr`
-  output. At least one of `exitCode`, `stdout`, or `stderr` must be provided.
+  Compares `exitCode`, `stdout`, and/or `stderr` of the wrapped check
+  against expected strings.
+  Any mismatch is reported to the snapshot's own `stderr` output.
+  At least one of `exitCode`, `stdout`, or `stderr` must be provided.
 
-  For extra derivation attributes, use `mkSnapshotWith` directly.
+  For extra derivation attributes,
+  use `mkSnapshotWith` directly.
 
   # Type
 
@@ -20,7 +22,8 @@
   # Arguments
 
   name
-  : Check name. Becomes the derivation name `snapshot-<name>`.
+  : Check name.
+    Becomes the derivation name `snapshot-<name>`.
 
   expectations
   : Attribute set with the following keys:

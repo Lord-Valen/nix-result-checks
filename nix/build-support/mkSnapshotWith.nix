@@ -5,9 +5,10 @@
 /**
   Assert the outputs of a result check match expected values.
 
-  Low-level form of `mkSnapshot`. Accepts the full `mkResultWith`
-  attribute set alongside snapshot-specific keys. Use `mkSnapshot`
-  for the common case.
+  Low-level form of `mkSnapshot`.
+  Accepts the full `mkResultWith` attribute set
+  alongside snapshot-specific keys.
+  Use `mkSnapshot` for the common case.
 
   # Type
 
@@ -18,8 +19,10 @@
   # Arguments
 
   attrs
-  : Attribute set. Required keys: `name`, `resultCheck`. Optional keys:
-    `exitCode`, `stdout`, `stderr` (each defaults to "don't assert").
+  : Attribute set.
+    Required keys: `name`, `resultCheck`.
+    Optional keys: `exitCode`, `stdout`, `stderr`
+    (each defaults to "don't assert").
     All other `mkResultWith` keys are supported.
 
   # Example

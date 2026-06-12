@@ -5,13 +5,13 @@
 /**
   The primary way to define a result check.
 
-  Runs `command` in a derivation with `set +e`. Exit code, stdout, and
-  stderr are captured in separate outputs (`exitCode`, `stdout`, `stderr`)
-  rather than failing the build — the derivation always succeeds regardless
-  of the command's outcome.
+  Runs `command` in a derivation with `set +e`.
+  Exit code, stdout, and stderr are captured in separate outputs
+  (`exitCode`, `stdout`, `stderr`) rather than failing the build;
+  the derivation always succeeds regardless of the command's outcome.
 
-  For extra derivation attributes (e.g. `nativeBuildInputs`), use
-  `mkResultWith` directly.
+  For extra derivation attributes (e.g. `nativeBuildInputs`),
+  use `mkResultWith` directly.
 
   # Type
 
@@ -22,7 +22,8 @@
   # Arguments
 
   name
-  : Check name. Becomes the derivation name `result-<name>`.
+  : Check name.
+    Becomes the derivation name `result-<name>`.
 
   command
   : Shell command to run as the check body.

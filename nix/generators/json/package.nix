@@ -5,6 +5,10 @@
 /**
   Generate a newline-delimited JSON report from result check outputs.
 
+  Prefer `mkReport`,
+  which accepts checks in their natural shape;
+  this generator takes the normalized form it produces.
+
   Each line of the output is a JSON object with the following fields:
 
   - `name`: the attribute name of the check
