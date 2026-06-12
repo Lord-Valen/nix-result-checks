@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Lord-Valen
+//
+// SPDX-License-Identifier: MIT
+
 use super::*;
 
 fn entry(name: &str, status: Status, suite: Option<&str>) -> CheckEntry {

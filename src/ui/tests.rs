@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Lord-Valen
+//
+// SPDX-License-Identifier: MIT
+
 use std::sync::mpsc;
 
 use ratatui::crossterm::event::{KeyModifiers, MouseEventKind};
