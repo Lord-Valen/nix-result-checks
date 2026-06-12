@@ -12,6 +12,7 @@
 let
   helpers = {
     mkSkip = ../../build-support/mkSkip.nix;
+    mkEntries = ../../build-support/mkEntries.nix;
     mkResultWith = ../../build-support/mkResultWith.nix;
     mkResult = ../../build-support/mkResult.nix;
     mkSnapshot = ../../build-support/mkSnapshot.nix;
@@ -19,7 +20,6 @@ let
   };
   generators = {
     json = ../../generators/json/package.nix;
-    kdl = ../../generators/kdl/package.nix;
   };
   manPage = section: name: file: ''
     nixdoc --category "${name}" --description "" --file ${file} \

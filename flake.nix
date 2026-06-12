@@ -30,6 +30,7 @@
         devShells = "dev";
         packages = "dev";
         apps = "dev";
+        resultChecks = "dev";
       };
     };
 

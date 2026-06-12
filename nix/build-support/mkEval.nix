@@ -3,75 +3,45 @@
 # SPDX-License-Identifier: MIT
 
 /**
-  Run pure Nix evaluation tests as a result check.
+  Declare a suite of pure Nix evaluation tests as an eval check.
 
-  Tests are evaluated at Nix eval time using `lib.debug.runTests` — no
-  sandbox, no builder, no I/O. The outcomes are then written into a result
-  check derivation at build time. Failures are reported in the `stdout`
-  output; the derivation always succeeds.
+  An eval check is plain data — no derivation, no store access. Tests
+  are evaluated lazily, one attribute per test, so runners such as
+  `nrc` can shard them across `nix-eval-jobs` workers. Use
+  `mkEntries` to compute the per-test results.
 
-  Use this for testing pure Nix functions. For testing shell commands or
-  build-time behaviour, use `mkResult` or `mkSnapshot`.
-
-  For extra derivation attributes, use `mkResultWith` directly with the
-  build command from `mkEval.buildCommand`.
+  Registered in `resultChecks.checks`, an eval check displays as a
+  suite with one entry per test. Use this for testing pure Nix
+  functions. For testing shell commands or build-time behaviour, use
+  `mkResult` or `mkSnapshot`.
 
   # Type
 
   ```
-  mkEval :: String -> AttrSet -> Derivation
+  mkEval :: AttrSet -> EvalCheck
   ```
 
   # Arguments
 
-  name
-  : Check name. Becomes the derivation name `eval-tests-<name>`.
-
   tests
-  : Attribute set of test cases in `lib.debug.runTests` format. Each
-    entry must have `expr` (the value under test) and `expected` (the
-    expected value).
+  : Attribute set of test cases. Each entry must have `expr` (the
+    value under test) and `expected` (the expected value). Unlike
+    `lib.debug.runTests`, every attribute is a test regardless of
+    its name.
 
   # Example
 
   ```nix
-  mkEval "my-lib"
-    {
-      testAdd = {
-        expr = myLib.add 1 2;
-        expected = 3;
-      };
-    }
+  resultChecks.checks.my-lib = mkEval {
+    testAdd = {
+      expr = myLib.add 1 2;
+      expected = 3;
+    };
+  };
   ```
 */
-{ lib, mkResultWith }:
-name: tests:
-let
-  failures = lib.debug.runTests tests;
-  failureCount = builtins.length failures;
-  formatFailure =
-    {
-      name,
-      expected,
-      result,
-    }:
-    "FAIL: ${name}\n  expected: ${lib.generators.toPretty { } expected}\n  got:      ${
-      lib.generators.toPretty { } result
-    }";
-  report = lib.concatMapStringsSep "\n" formatFailure failures;
-  failed = failureCount > 0;
-  stdout = lib.optionalString failed "${report}\n";
-  stderrMsg = lib.optionalString failed "${toString failureCount} test(s) failed\n";
-  exitCode = if failed then "1" else "0";
-in
-mkResultWith {
-  name = "eval-tests-${name}";
-  passthru.kind = "eval";
-  buildCommand = ''
-    touch "$out"
-    printf '%s' ${lib.escapeShellArg stdout} > "$stdout"
-    printf '%s' ${lib.escapeShellArg stderrMsg} > "$stderr"
-    printf '%s' ${lib.escapeShellArg exitCode} > "$exitCode"
-    exit 0
-  '';
+{ }:
+tests: {
+  kind = "eval";
+  inherit tests;
 }

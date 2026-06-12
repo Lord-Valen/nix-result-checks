@@ -38,7 +38,6 @@ All functions are available under `pkgs.resultChecks` via the overlay.
 | Package | Description |
 |---|---|
 | `json` | Generates a JSON report from check results. Override `checks` to provide the check set. |
-| `kdl` | Generates a KDL report from check results. Override `checks` to provide the check set. |
 
 ## Usage with flake-parts
 
