@@ -17,6 +17,23 @@ jobs:
       - uses: actions/checkout@v4
       - uses: fsfe/reuse-action@v5
 
+  changelog:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'no-changelog')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require a changelog entry for source changes
+        run: |
+          changed=$(git diff --name-only "origin/${{ github.base_ref }}"...HEAD)
+          if echo "$changed" | grep -qE '^(src|nix)/' \
+            && ! echo "$changed" | grep -qx 'CHANGELOG.md'; then
+            echo "Source changed without a CHANGELOG.md entry." >&2
+            echo "Add one under Unreleased, or label the PR 'no-changelog'." >&2
+            exit 1
+          fi
+
   docs:
     runs-on: ubuntu-latest
     steps:
