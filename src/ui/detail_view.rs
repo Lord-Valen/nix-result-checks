@@ -62,7 +62,7 @@ impl DetailView {
     /// first check. Leaves `key` unchanged if `idx` doesn't resolve to one.
     pub fn sync_selection(&mut self, app: &App, idx: usize) {
         match app.visible_items().get(idx) {
-            Some(VisibleItem::Check(key)) => {
+            Some(VisibleItem::Check { key, .. }) => {
                 self.key = Some(key.clone());
             }
             Some(VisibleItem::Suite(name)) => {

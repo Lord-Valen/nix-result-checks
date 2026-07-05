@@ -13,6 +13,7 @@ fn entry(name: &str, status: Status, suite: Option<&str>) -> CheckEntry {
         stdout: String::new(),
         stderr: String::new(),
         suite: suite.map(str::to_owned),
+        children: Vec::new(),
     }
 }
 
@@ -22,6 +23,11 @@ fn flat(name: &str) -> CheckEntry {
 
 fn suite_check(suite: &str, name: &str) -> CheckEntry {
     entry(name, Status::Pass, Some(suite))
+}
+
+fn with_children(mut parent: CheckEntry, children: Vec<CheckEntry>) -> CheckEntry {
+    parent.children = children;
+    parent
 }
 
 #[test]
@@ -125,8 +131,8 @@ fn visible_items_flat_checks() {
     app.upsert(flat("lint"));
     app.upsert(flat("fmt"));
     let vis = app.visible_items();
-    assert!(matches!(&vis[0], VisibleItem::Check(k) if k == "lint"));
-    assert!(matches!(&vis[1], VisibleItem::Check(k) if k == "fmt"));
+    assert!(matches!(&vis[0], VisibleItem::Check { key: k, .. } if k == "lint"));
+    assert!(matches!(&vis[1], VisibleItem::Check { key: k, .. } if k == "fmt"));
 }
 
 #[test]
@@ -136,8 +142,8 @@ fn visible_items_suite_unfolded() {
     app.upsert(suite_check("db", "migration"));
     let vis = app.visible_items();
     assert!(matches!(&vis[0], VisibleItem::Suite(n) if n == "db"));
-    assert!(matches!(&vis[1], VisibleItem::Check(k) if k == "db:schema"));
-    assert!(matches!(&vis[2], VisibleItem::Check(k) if k == "db:migration"));
+    assert!(matches!(&vis[1], VisibleItem::Check { key: k, .. } if k == "db:schema"));
+    assert!(matches!(&vis[2], VisibleItem::Check { key: k, .. } if k == "db:migration"));
 }
 
 #[test]
@@ -159,6 +165,81 @@ fn toggle_suite_unfolds() {
     assert!(app.folded_suites.contains("db"));
     app.toggle_suite("db");
     assert!(!app.folded_suites.contains("db"));
+}
+
+// -- Children --
+
+#[test]
+fn upsert_links_children_under_the_parent_key() {
+    let mut app = App::new();
+    let snapshot = with_children(flat("snap"), vec![flat("actual")]);
+    app.upsert(snapshot);
+    assert!(app.entries.contains_key("snap"));
+    assert!(app.entries.contains_key("snap:actual"));
+    // Children are not their own order entry — only reachable via child_keys.
+    assert_eq!(app.order.len(), 1);
+    assert_eq!(
+        app.child_keys.get("snap").map(Vec::as_slice),
+        Some(["snap:actual".to_string()].as_slice())
+    );
+}
+
+#[test]
+fn upsert_links_children_of_a_suite_check() {
+    let mut app = App::new();
+    let snapshot = with_children(suite_check("db", "snap"), vec![flat("actual")]);
+    app.upsert(snapshot);
+    assert!(app.entries.contains_key("db:snap:actual"));
+    assert_eq!(
+        app.child_keys.get("db:snap").map(Vec::as_slice),
+        Some(["db:snap:actual".to_string()].as_slice())
+    );
+}
+
+#[test]
+fn children_are_folded_by_default() {
+    let mut app = App::new();
+    app.upsert(with_children(flat("snap"), vec![flat("actual")]));
+    let vis = app.visible_items();
+    assert_eq!(vis.len(), 1, "child should be hidden until unfolded");
+    assert!(app.folded_checks.contains("snap"));
+}
+
+#[test]
+fn toggle_children_unfolds() {
+    let mut app = App::new();
+    app.upsert(with_children(flat("snap"), vec![flat("actual")]));
+    app.toggle_children("snap");
+    assert!(!app.folded_checks.contains("snap"));
+    assert_eq!(app.visible_items().len(), 2);
+    app.toggle_children("snap");
+    assert!(app.folded_checks.contains("snap"));
+    assert_eq!(app.visible_items().len(), 1);
+}
+
+#[test]
+fn visible_items_nest_children_by_depth() {
+    let mut app = App::new();
+    let grandchild = flat("actual");
+    let child = with_children(flat("actual"), vec![grandchild]);
+    let snapshot = with_children(flat("snap"), vec![child]);
+    app.upsert(snapshot);
+    app.toggle_children("snap");
+    app.toggle_children("snap:actual");
+    let vis = app.visible_items();
+    assert!(matches!(&vis[0], VisibleItem::Check { key, depth: 0 } if key == "snap"));
+    assert!(matches!(&vis[1], VisibleItem::Check { key, depth: 1 } if key == "snap:actual"));
+    assert!(matches!(&vis[2], VisibleItem::Check { key, depth: 2 } if key == "snap:actual:actual"));
+}
+
+#[test]
+fn prune_removes_children_of_a_pruned_check() {
+    let mut app = App::new();
+    app.upsert(with_children(flat("snap"), vec![flat("actual")]));
+    app.bump_generation();
+    app.prune();
+    assert!(!app.entries.contains_key("snap:actual"));
+    assert!(app.child_keys.get("snap").is_none());
 }
 
 // -- Counts --

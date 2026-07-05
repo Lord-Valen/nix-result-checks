@@ -149,7 +149,7 @@ impl Ui {
                 let visible = app.visible_items();
                 match self.list.selected().and_then(|i| visible.get(i)) {
                     Some(VisibleItem::Suite(_)) => self.execute(Command::ToggleSuite, app),
-                    Some(VisibleItem::Check(_)) => self.execute(Command::ToggleDetail, app),
+                    Some(VisibleItem::Check { .. }) => self.execute(Command::ToggleDetail, app),
                     None => false,
                 }
             }

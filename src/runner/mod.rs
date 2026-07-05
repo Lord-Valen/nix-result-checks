@@ -56,6 +56,7 @@ fn entry(suite: Option<String>, name: String, pre: PreEntry) -> CheckEntry {
         exit_code: pre.exit_code,
         stdout: pre.stdout,
         stderr: pre.stderr,
+        children: Vec::new(),
     }
 }
 
@@ -70,6 +71,7 @@ fn error_entry(suite: Option<String>, name: String, error: String) -> CheckEntry
         exit_code: "1".to_owned(),
         stdout: String::new(),
         stderr: error,
+        children: Vec::new(),
     }
 }
 

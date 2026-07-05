@@ -27,6 +27,7 @@ fn make_app(n: usize) -> App {
             stdout: String::new(),
             stderr: String::new(),
             suite: None,
+            children: Vec::new(),
         });
     }
     app
@@ -43,6 +44,7 @@ fn make_suite_app() -> App {
             stdout: String::new(),
             stderr: String::new(),
             suite: Some("db".to_string()),
+            children: Vec::new(),
         });
     }
     app

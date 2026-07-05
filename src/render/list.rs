@@ -32,6 +32,7 @@ mod tests {
             stdout: String::new(),
             stderr: String::new(),
             suite: None,
+            children: Vec::new(),
         }
     }
 
@@ -190,10 +191,17 @@ pub fn render_list(frame: &mut Frame, app: &App, ui: &mut Ui, area: Rect) {
                     }
                     ListItem::new(Line::from(spans)).style(style)
                 }
-                VisibleItem::Check(key) => {
+                VisibleItem::Check { key, depth } => {
                     let entry = app.entries.get(&key).expect("visible item has entry");
-                    let indent = if entry.suite.is_some() { "  " } else { "" };
-                    let line = format!("{indent}{} {}", entry.status.symbol(), entry.name);
+                    let indent = "  ".repeat(depth);
+                    let arrow = if !app.child_keys.contains_key(&key) {
+                        ""
+                    } else if app.folded_checks.contains(&key) {
+                        "▶ "
+                    } else {
+                        "▼ "
+                    };
+                    let line = format!("{indent}{arrow}{} {}", entry.status.symbol(), entry.name);
                     let mut style = Style::new().fg(entry.status.color());
                     if selected {
                         style = style.add_modifier(Modifier::REVERSED);

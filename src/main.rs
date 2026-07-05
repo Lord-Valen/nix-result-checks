@@ -204,7 +204,7 @@ fn run(
                         .into_iter()
                         .nth(i)
                         .and_then(|v| match v {
-                            crate::app::VisibleItem::Check(k) => Some(k),
+                            crate::app::VisibleItem::Check { key, .. } => Some(key),
                             crate::app::VisibleItem::Suite(name) => {
                                 Some(format!("__suite__{name}"))
                             }
@@ -224,7 +224,7 @@ fn run(
                         )
                     } else {
                         visible.iter().position(
-                            |v| matches!(v, crate::app::VisibleItem::Check(k) if k == &key),
+                            |v| matches!(v, crate::app::VisibleItem::Check { key: k, .. } if k == &key),
                         )
                     };
                     Some(pos.unwrap_or_else(|| old_idx.unwrap_or(0).min(visible.len() - 1)))
