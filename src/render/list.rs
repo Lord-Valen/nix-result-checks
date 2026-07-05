@@ -7,7 +7,7 @@ use ratatui::{
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, ListState, Padding},
+    widgets::{Block, Borders, List, ListItem, Padding},
 };
 
 use crate::app::{App, VisibleItem};
@@ -42,13 +42,13 @@ mod tests {
         }
         let (tx, _rx) = std::sync::mpsc::channel();
         let mut ui = Ui::new(tx);
-        ui.selected = Some(0);
+        *ui.list_state.selected_mut() = Some(0);
         let backend = TestBackend::new(width, height);
         let mut terminal = Terminal::new(backend).unwrap();
         let keymap = Keymap::qwerty();
         terminal
             .draw(|frame| {
-                render(frame, &app, &ui, &keymap);
+                render(frame, &app, &mut ui, &keymap);
             })
             .unwrap();
         terminal.backend().to_string()
@@ -67,6 +67,47 @@ mod tests {
     #[test]
     fn renders_empty() {
         insta::assert_snapshot!(snapshot(&[], 40, 10));
+    }
+
+    #[test]
+    fn selection_moves_within_view_without_scrolling() {
+        // 10 entries, inner height 5 (7 - 2 borders): first render forces a
+        // scroll to make entry 9 visible, landing offset at 5 (items 5..10).
+        // Moving the selection back up to entry 6 stays inside that same
+        // window, so the offset must not change.
+        let entries: Vec<CheckEntry> = (0..10)
+            .map(|i| make_entry(&format!("check-{i}"), Status::Pass))
+            .collect();
+        let mut app = App::new();
+        for entry in &entries {
+            app.upsert(entry.clone());
+        }
+        let (tx, _rx) = std::sync::mpsc::channel();
+        let mut ui = Ui::new(tx);
+        let backend = TestBackend::new(40, 7);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let keymap = Keymap::qwerty();
+
+        *ui.list_state.selected_mut() = Some(9);
+        terminal
+            .draw(|frame| {
+                render(frame, &app, &mut ui, &keymap);
+            })
+            .unwrap();
+        let offset_after_scroll = ui.list_state.offset();
+        assert!(offset_after_scroll > 0, "expected a scroll to occur");
+
+        *ui.list_state.selected_mut() = Some(6);
+        terminal
+            .draw(|frame| {
+                render(frame, &app, &mut ui, &keymap);
+            })
+            .unwrap();
+        assert_eq!(
+            ui.list_state.offset(),
+            offset_after_scroll,
+            "selecting an item already in view must not move the scroll offset"
+        );
     }
 
     #[test]
@@ -111,7 +152,7 @@ fn counts_line(pass: usize, fail: usize, skip: usize) -> Line<'static> {
     Line::from(spans)
 }
 
-pub fn render_list(frame: &mut Frame, app: &App, ui: &Ui, area: Rect) {
+pub fn render_list(frame: &mut Frame, app: &App, ui: &mut Ui, area: Rect) {
     let status = if ui.rebuilding {
         " loading… ".to_string()
     } else if let Some(n) = ui.watch_count {
@@ -134,7 +175,7 @@ pub fn render_list(frame: &mut Frame, app: &App, ui: &Ui, area: Rect) {
         .into_iter()
         .enumerate()
         .map(|(idx, item)| {
-            let selected = ui.selected == Some(idx);
+            let selected = ui.list_state.selected() == Some(idx);
             match item {
                 VisibleItem::Suite(name) => {
                     let folded = app.folded_suites.contains(&name);
@@ -163,8 +204,5 @@ pub fn render_list(frame: &mut Frame, app: &App, ui: &Ui, area: Rect) {
         })
         .collect();
 
-    let mut state = ListState::default();
-    state.select(ui.selected);
-
-    frame.render_stateful_widget(List::new(items), inner, &mut state);
+    frame.render_stateful_widget(List::new(items), inner, &mut ui.list_state);
 }

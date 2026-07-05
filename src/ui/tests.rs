@@ -61,18 +61,18 @@ fn mouse_event(kind: MouseEventKind, column: u16) -> Event {
 fn select_next_clamps_at_end() {
     let (mut ui, _rx) = make_ui();
     let mut app = make_app(3);
-    ui.selected = Some(2);
+    *ui.list_state.selected_mut() = Some(2);
     ui.execute(Command::SelectNext, &mut app);
-    assert_eq!(ui.selected, Some(2));
+    assert_eq!(ui.list_state.selected(), Some(2));
 }
 
 #[test]
 fn select_prev_clamps_at_start() {
     let (mut ui, _rx) = make_ui();
     let mut app = make_app(3);
-    ui.selected = Some(0);
+    *ui.list_state.selected_mut() = Some(0);
     ui.execute(Command::SelectPrev, &mut app);
-    assert_eq!(ui.selected, Some(0));
+    assert_eq!(ui.list_state.selected(), Some(0));
 }
 
 // -- Dwim --
@@ -81,7 +81,7 @@ fn select_prev_clamps_at_start() {
 fn dwim_on_suite_folds() {
     let (mut ui, _rx) = make_ui();
     let mut app = make_suite_app();
-    ui.selected = Some(0); // Suite("db")
+    *ui.list_state.selected_mut() = Some(0); // Suite("db")
     ui.execute(Command::Dwim, &mut app);
     assert!(app.folded_suites.contains("db"));
 }
@@ -90,7 +90,7 @@ fn dwim_on_suite_folds() {
 fn dwim_on_suite_folds_even_when_detail_open() {
     let (mut ui, _rx) = make_ui();
     let mut app = make_suite_app();
-    ui.selected = Some(0); // Suite("db")
+    *ui.list_state.selected_mut() = Some(0); // Suite("db")
     ui.detail_key = Some("db:alpha".to_string());
     ui.detail_open = true;
     ui.execute(Command::Dwim, &mut app);
@@ -102,7 +102,7 @@ fn dwim_on_suite_folds_even_when_detail_open() {
 fn dwim_on_check_opens_detail() {
     let (mut ui, _rx) = make_ui();
     let mut app = make_suite_app();
-    ui.selected = Some(1); // Check("db:alpha")
+    *ui.list_state.selected_mut() = Some(1); // Check("db:alpha")
     ui.detail_key = Some("db:alpha".to_string());
     ui.execute(Command::Dwim, &mut app);
     assert!(ui.detail_open);
@@ -112,7 +112,7 @@ fn dwim_on_check_opens_detail() {
 fn dwim_on_check_closes_detail() {
     let (mut ui, _rx) = make_ui();
     let mut app = make_suite_app();
-    ui.selected = Some(1); // Check("db:alpha")
+    *ui.list_state.selected_mut() = Some(1); // Check("db:alpha")
     ui.detail_key = Some("db:alpha".to_string());
     ui.detail_open = true;
     ui.execute(Command::Dwim, &mut app);
@@ -129,7 +129,7 @@ fn toggle_detail_stays_open_when_suite_selected() {
     // detail_key persists, so ToggleDetail still works
     ui.detail_key = Some("db:alpha".to_string());
     ui.detail_open = true;
-    ui.selected = Some(0); // Suite("db")
+    *ui.list_state.selected_mut() = Some(0); // Suite("db")
     assert!(ui.execute(Command::ToggleDetail, &mut app));
     assert!(!ui.detail_open);
 }
@@ -141,7 +141,7 @@ fn page_down_increments_by_10() {
     let (mut ui, _rx) = make_ui();
     let mut app = make_app(1);
     app.entries.get_mut("check-0").unwrap().stdout = "a\n".repeat(20);
-    ui.selected = Some(0);
+    *ui.list_state.selected_mut() = Some(0);
     ui.detail_key = Some("check-0".to_string());
     ui.detail_open = true;
     ui.stdout_bounds = PanelBounds {
@@ -157,7 +157,7 @@ fn page_up_decrements_by_10() {
     let (mut ui, _rx) = make_ui();
     let mut app = make_app(1);
     app.entries.get_mut("check-0").unwrap().stdout = "a\n".repeat(30);
-    ui.selected = Some(0);
+    *ui.list_state.selected_mut() = Some(0);
     ui.detail_open = true;
     ui.stdout_bounds = PanelBounds {
         height: 5,
@@ -174,10 +174,10 @@ fn page_up_decrements_by_10() {
 fn dispatch_commands_does_not_continue_after_handled() {
     let (mut ui, _rx) = make_ui();
     let mut app = make_app(3);
-    ui.selected = Some(0);
+    *ui.list_state.selected_mut() = Some(0);
     let cmds = [Command::SelectNext, Command::SelectNext];
     ui.dispatch_commands(&cmds, &mut app);
-    assert_eq!(ui.selected, Some(1));
+    assert_eq!(ui.list_state.selected(), Some(1));
 }
 
 // -- Mouse --
@@ -188,7 +188,7 @@ fn mouse_scroll_down_scrolls_detail_panel() {
     let mut app = make_app(1);
     app.entries.get_mut("check-0").unwrap().stdout = "a\n".repeat(20);
     let keymap = Keymap::qwerty();
-    ui.selected = Some(0);
+    *ui.list_state.selected_mut() = Some(0);
     ui.detail_open = true;
     ui.stdout_bounds = PanelBounds {
         height: 5,

@@ -74,7 +74,7 @@ impl Drop for Renderer {
 fn render(
     frame: &mut Frame,
     app: &App,
-    ui: &Ui,
+    ui: &mut Ui,
     keymap: &Keymap,
 ) -> Option<(PanelBounds, PanelBounds)> {
     let area = frame.area();

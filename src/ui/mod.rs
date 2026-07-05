@@ -49,7 +49,10 @@ impl DetailFocus {
 }
 
 pub struct Ui {
-    pub selected: Option<usize>,
+    /// Selected index plus the check list's scroll offset, which is
+    /// persisted across frames so the viewport only scrolls when the
+    /// selection would otherwise move off screen.
+    pub list_state: ratatui::widgets::ListState,
     /// The entry key of the check shown in the detail panel. Updated when
     /// navigation lands on a check; unchanged when navigating to a suite header
     /// so the panel keeps showing the last-viewed check.
@@ -72,7 +75,7 @@ pub struct Ui {
 impl Ui {
     pub fn new(tx: mpsc::Sender<Event>) -> Self {
         Self {
-            selected: None,
+            list_state: ratatui::widgets::ListState::default(),
             detail_key: None,
             detail_open: false,
             detail_focus: DetailFocus::Stdout,
@@ -193,7 +196,7 @@ impl Ui {
             }
             Command::Dwim => {
                 let visible = app.visible_items();
-                match self.selected.and_then(|i| visible.get(i)) {
+                match self.list_state.selected().and_then(|i| visible.get(i)) {
                     Some(VisibleItem::Suite(_)) => self.execute(Command::ToggleSuite, app),
                     Some(VisibleItem::Check(_)) => self.execute(Command::ToggleDetail, app),
                     None => false,
@@ -293,7 +296,7 @@ impl Ui {
     }
 
     fn update_detail_key(&mut self, app: &App) {
-        let Some(idx) = self.selected else { return };
+        let Some(idx) = self.list_state.selected() else { return };
         match app.visible_items().get(idx) {
             Some(VisibleItem::Check(key)) => {
                 self.detail_key = Some(key.clone());
@@ -318,7 +321,7 @@ impl Ui {
         if visible.is_empty() {
             return;
         }
-        self.selected = Some(match self.selected {
+        *self.list_state.selected_mut() = Some(match self.list_state.selected() {
             None => 0,
             Some(i) => (i + 1).min(visible.len() - 1),
         });
@@ -331,7 +334,7 @@ impl Ui {
         if visible.is_empty() {
             return;
         }
-        self.selected = Some(match self.selected {
+        *self.list_state.selected_mut() = Some(match self.list_state.selected() {
             None => 0,
             Some(i) => i.saturating_sub(1),
         });
@@ -341,12 +344,12 @@ impl Ui {
 
     fn select_next_suite(&mut self, app: &App) {
         let visible = app.visible_items();
-        let start = self.selected.map_or(0, |i| i + 1);
+        let start = self.list_state.selected().map_or(0, |i| i + 1);
         if let Some(idx) = visible[start..]
             .iter()
             .position(|v| matches!(v, VisibleItem::Suite(_)))
         {
-            self.selected = Some(start + idx);
+            *self.list_state.selected_mut() = Some(start + idx);
             self.update_detail_key(app);
             self.reset_scrolls();
         }
@@ -354,19 +357,19 @@ impl Ui {
 
     fn select_prev_suite(&mut self, app: &App) {
         let visible = app.visible_items();
-        let end = self.selected.unwrap_or(0);
+        let end = self.list_state.selected().unwrap_or(0);
         if let Some(idx) = visible[..end]
             .iter()
             .rposition(|v| matches!(v, VisibleItem::Suite(_)))
         {
-            self.selected = Some(idx);
+            *self.list_state.selected_mut() = Some(idx);
             self.update_detail_key(app);
             self.reset_scrolls();
         }
     }
 
     fn toggle_suite(&mut self, app: &mut App) {
-        let Some(idx) = self.selected else { return };
+        let Some(idx) = self.list_state.selected() else { return };
         let visible = app.visible_items();
         if let Some(VisibleItem::Suite(name)) = visible.get(idx) {
             let name = name.clone();

@@ -195,11 +195,11 @@ fn run(
                 let first = app.order.is_empty();
                 app.upsert(entry);
                 if first {
-                    ui.selected = Some(0);
+                    *ui.list_state.selected_mut() = Some(0);
                 }
             }
             Event::Done => {
-                let selected_key = ui.selected.and_then(|i| {
+                let selected_key = ui.list_state.selected().and_then(|i| {
                     app.visible_items()
                         .into_iter()
                         .nth(i)
@@ -210,12 +210,12 @@ fn run(
                             }
                         })
                 });
-                let old_idx = ui.selected;
+                let old_idx = ui.list_state.selected();
                 app.prune();
                 app.bump_generation();
                 ui.rebuilding = false;
                 let visible = app.visible_items();
-                ui.selected = if visible.is_empty() {
+                *ui.list_state.selected_mut() = if visible.is_empty() {
                     None
                 } else if let Some(key) = selected_key {
                     let pos = if let Some(suite_name) = key.strip_prefix("__suite__") {

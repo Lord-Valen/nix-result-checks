@@ -16,6 +16,13 @@ CI enforces this for changes touching `src/` or `nix/`.
 
 ## [Unreleased]
 
+### Fixed
+
+- TUI check list no longer resets its scroll position on every render.
+  Previously the viewport recomputed from scratch each frame, so moving
+  the selection could jump the whole list instead of just scrolling the
+  minimum needed to keep the selection visible.
+
 ## [2.0.0] - 2026-06-12
 
 ### Changed
