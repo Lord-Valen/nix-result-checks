@@ -145,7 +145,7 @@ impl Ui {
                 self.select_prev_suite(app);
                 true
             }
-            Command::Dwim => {
+            Command::ToggleDwim => {
                 let visible = app.visible_items();
                 match self.list.selected().and_then(|i| visible.get(i)) {
                     Some(VisibleItem::Suite(_)) => self.execute(Command::ToggleSuite, app),
@@ -158,7 +158,10 @@ impl Ui {
                 true
             }
             Command::ToggleDetail => self.detail.toggle(),
+            Command::OpenDetail => self.detail.open(),
             Command::ToggleFocus => self.detail.toggle_focus(),
+            Command::RightDwim => self.right_dwim(app),
+            Command::LeftDwim => self.left_dwim(app),
             Command::ScrollLeft => self.detail.scroll_h(app, u16::saturating_sub, 1),
             Command::ScrollRight => self.detail.scroll_h(app, u16::saturating_add, 1),
             Command::ScrollDown => self.detail.scroll_v(app, u16::saturating_add, 1),
@@ -214,6 +217,82 @@ impl Ui {
             let name = name.clone();
             app.toggle_suite(&name);
         }
+    }
+
+    /// Unfolds the selected suite/check if folded; otherwise moves to its
+    /// first child (the next row, since `visible_items` is depth-first).
+    fn right_dwim(&mut self, app: &mut App) -> bool {
+        let Some(idx) = self.list.selected() else {
+            return false;
+        };
+        let visible = app.visible_items();
+        let Some(item) = visible.get(idx) else {
+            return false;
+        };
+        match item {
+            VisibleItem::Suite(name) if app.folded_suites.contains(name) => {
+                app.toggle_suite(&name.clone());
+                true
+            }
+            VisibleItem::Check { key, .. }
+                if app.child_keys.contains_key(key) && app.folded_checks.contains(key) =>
+            {
+                app.toggle_children(&key.clone());
+                true
+            }
+            _ if idx + 1 < visible.len() && depth_of(item) < depth_of(&visible[idx + 1]) => {
+                *self.list.state.selected_mut() = Some(idx + 1);
+                self.after_selection_change(app);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Folds the selected suite/check if unfolded; otherwise moves to its
+    /// parent (the nearest preceding row at a shallower depth).
+    fn left_dwim(&mut self, app: &mut App) -> bool {
+        let Some(idx) = self.list.selected() else {
+            return false;
+        };
+        let visible = app.visible_items();
+        let Some(item) = visible.get(idx) else {
+            return false;
+        };
+        match item {
+            VisibleItem::Suite(name) if !app.folded_suites.contains(name) => {
+                app.toggle_suite(&name.clone());
+                true
+            }
+            VisibleItem::Check { key, .. }
+                if app.child_keys.contains_key(key) && !app.folded_checks.contains(key) =>
+            {
+                app.toggle_children(&key.clone());
+                true
+            }
+            _ => {
+                let cur_depth = depth_of(item);
+                match (0..idx).rev().find(|&i| depth_of(&visible[i]) < cur_depth) {
+                    Some(parent_idx) => {
+                        *self.list.state.selected_mut() = Some(parent_idx);
+                        self.after_selection_change(app);
+                        true
+                    }
+                    None => false,
+                }
+            }
+        }
+    }
+}
+
+/// Ordering depth used by `right_dwim`/`left_dwim` to find a parent or
+/// first child in the depth-first `visible_items` list. `None` (a suite
+/// header) sorts shallower than any check row, including flat top-level
+/// checks, via `Option`'s derived `Ord`.
+fn depth_of(item: &VisibleItem) -> Option<usize> {
+    match item {
+        VisibleItem::Suite(_) => None,
+        VisibleItem::Check { depth, .. } => Some(*depth),
     }
 }
 

@@ -111,11 +111,22 @@ pub enum Command {
     SelectPrev,
     NextSuite,
     PrevSuite,
-    /// Suite selected: fold/unfold. Check selected: toggle detail panel.
-    Dwim,
+    /// Suite selected: fold/unfold. Check selected (with or without
+    /// children): toggle detail panel.
+    ToggleDwim,
     ToggleSuite,
     ToggleDetail,
+    /// Opens the detail panel if closed; does nothing if already open.
+    /// Used as the last resort of the Left/Right dwim chains, once
+    /// there's nothing left to fold or navigate to.
+    OpenDetail,
     ToggleFocus,
+    /// Unfold the selected suite/check if folded; otherwise move to its
+    /// first child.
+    RightDwim,
+    /// Fold the selected suite/check if unfolded; otherwise move to its
+    /// parent.
+    LeftDwim,
     ScrollDown,
     ScrollUp,
     ScrollLeft,
@@ -134,10 +145,13 @@ impl Command {
             Command::SelectPrev => "select previous",
             Command::NextSuite => "jump to next suite",
             Command::PrevSuite => "jump to previous suite",
-            Command::Dwim => "fold suite / toggle detail",
+            Command::ToggleDwim => "fold suite / toggle detail",
             Command::ToggleSuite => "fold/unfold suite",
             Command::ToggleDetail => "toggle detail panel",
+            Command::OpenDetail => "open detail panel",
             Command::ToggleFocus => "switch stdout/stderr focus",
+            Command::RightDwim => "expand / move to first child",
+            Command::LeftDwim => "collapse / move to parent",
             Command::ScrollDown => "scroll down",
             Command::ScrollUp => "scroll up",
             Command::ScrollLeft => "scroll left",

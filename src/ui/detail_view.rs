@@ -91,6 +91,20 @@ impl DetailView {
         true
     }
 
+    /// Opens the panel if it isn't already. Returns `false` if there's no
+    /// check to show yet. Idempotent — unlike `toggle`, never closes it
+    /// or resets scroll position when already open.
+    pub fn open(&mut self) -> bool {
+        if self.key.is_none() {
+            return false;
+        }
+        if !self.open {
+            self.open = true;
+            self.reset_scrolls();
+        }
+        true
+    }
+
     /// Toggles stdout/stderr focus. Returns `false` if the panel is closed.
     pub fn toggle_focus(&mut self) -> bool {
         if !self.open {

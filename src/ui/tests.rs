@@ -33,6 +33,30 @@ fn make_app(n: usize) -> App {
     app
 }
 
+fn make_app_with_children() -> App {
+    let mut app = App::new();
+    app.upsert(CheckEntry {
+        name: "snap".to_string(),
+        status: Status::Pass,
+        kind: EntryKind::Snapshot,
+        exit_code: "0".to_string(),
+        stdout: String::new(),
+        stderr: String::new(),
+        suite: None,
+        children: vec![CheckEntry {
+            name: "actual".to_string(),
+            status: Status::Pass,
+            kind: EntryKind::Result,
+            exit_code: "0".to_string(),
+            stdout: String::new(),
+            stderr: String::new(),
+            suite: None,
+            children: Vec::new(),
+        }],
+    });
+    app
+}
+
 fn make_suite_app() -> App {
     let mut app = App::new();
     for name in ["alpha", "beta"] {
@@ -84,7 +108,7 @@ fn dwim_on_suite_folds() {
     let (mut ui, _rx) = make_ui();
     let mut app = make_suite_app();
     *ui.list.state.selected_mut() = Some(0); // Suite("db")
-    ui.execute(Command::Dwim, &mut app);
+    ui.execute(Command::ToggleDwim, &mut app);
     assert!(app.folded_suites.contains("db"));
 }
 
@@ -95,7 +119,7 @@ fn dwim_on_suite_folds_even_when_detail_open() {
     *ui.list.state.selected_mut() = Some(0); // Suite("db")
     ui.detail.key = Some("db:alpha".to_string());
     ui.detail.open = true;
-    ui.execute(Command::Dwim, &mut app);
+    ui.execute(Command::ToggleDwim, &mut app);
     assert!(app.folded_suites.contains("db"));
     assert!(ui.detail.open); // detail stays open — suite Dwim doesn't touch it
 }
@@ -106,8 +130,19 @@ fn dwim_on_check_opens_detail() {
     let mut app = make_suite_app();
     *ui.list.state.selected_mut() = Some(1); // Check("db:alpha")
     ui.detail.key = Some("db:alpha".to_string());
-    ui.execute(Command::Dwim, &mut app);
+    ui.execute(Command::ToggleDwim, &mut app);
     assert!(ui.detail.open);
+}
+
+#[test]
+fn dwim_on_check_with_children_still_opens_detail() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_app_with_children();
+    *ui.list.state.selected_mut() = Some(0); // Check("snap"), has children
+    ui.detail.key = Some("snap".to_string());
+    ui.execute(Command::ToggleDwim, &mut app);
+    assert!(app.folded_checks.contains("snap"), "fold state untouched");
+    assert!(ui.detail.open, "Dwim always opens detail on a check");
 }
 
 #[test]
@@ -117,8 +152,74 @@ fn dwim_on_check_closes_detail() {
     *ui.list.state.selected_mut() = Some(1); // Check("db:alpha")
     ui.detail.key = Some("db:alpha".to_string());
     ui.detail.open = true;
-    ui.execute(Command::Dwim, &mut app);
+    ui.execute(Command::ToggleDwim, &mut app);
     assert!(!ui.detail.open);
+}
+
+// -- Left/Right dwim --
+
+#[test]
+fn right_dwim_unfolds_folded_suite() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_suite_app();
+    app.toggle_suite("db"); // start folded
+    *ui.list.state.selected_mut() = Some(0); // Suite("db")
+    assert!(ui.execute(Command::RightDwim, &mut app));
+    assert!(!app.folded_suites.contains("db"));
+}
+
+#[test]
+fn right_dwim_on_unfolded_suite_moves_to_first_child() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_suite_app(); // unfolded by default
+    *ui.list.state.selected_mut() = Some(0); // Suite("db")
+    assert!(ui.execute(Command::RightDwim, &mut app));
+    assert_eq!(ui.list.state.selected(), Some(1)); // db:alpha
+}
+
+#[test]
+fn right_dwim_unfolds_folded_children() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_app_with_children(); // folded by default
+    *ui.list.state.selected_mut() = Some(0); // Check("snap")
+    assert!(ui.execute(Command::RightDwim, &mut app));
+    assert!(!app.folded_checks.contains("snap"));
+}
+
+#[test]
+fn right_dwim_on_leaf_check_is_a_noop() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_app(3);
+    *ui.list.state.selected_mut() = Some(0);
+    assert!(!ui.execute(Command::RightDwim, &mut app));
+    assert_eq!(ui.list.state.selected(), Some(0));
+}
+
+#[test]
+fn left_dwim_folds_unfolded_suite() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_suite_app(); // unfolded by default
+    *ui.list.state.selected_mut() = Some(0); // Suite("db")
+    assert!(ui.execute(Command::LeftDwim, &mut app));
+    assert!(app.folded_suites.contains("db"));
+}
+
+#[test]
+fn left_dwim_on_suite_child_moves_to_parent() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_suite_app();
+    *ui.list.state.selected_mut() = Some(1); // Check("db:alpha")
+    assert!(ui.execute(Command::LeftDwim, &mut app));
+    assert_eq!(ui.list.state.selected(), Some(0)); // Suite("db")
+}
+
+#[test]
+fn left_dwim_on_top_level_flat_check_is_a_noop() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_app(3);
+    *ui.list.state.selected_mut() = Some(0);
+    assert!(!ui.execute(Command::LeftDwim, &mut app));
+    assert_eq!(ui.list.state.selected(), Some(0));
 }
 
 // -- Toggle detail --
