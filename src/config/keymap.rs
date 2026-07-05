@@ -121,6 +121,10 @@ pub enum Command {
     /// there's nothing left to fold or navigate to.
     OpenDetail,
     ToggleFocus,
+    /// Switches keyboard focus between the check list and the detail
+    /// panel. Left/Right dwim only fold/navigate the list while it has
+    /// focus; once focus is on the detail panel they only scroll it.
+    TogglePane,
     /// Unfold the selected suite/check if folded; otherwise move to its
     /// first child.
     RightDwim,
@@ -150,6 +154,7 @@ impl Command {
             Command::ToggleDetail => "toggle detail panel",
             Command::OpenDetail => "open detail panel",
             Command::ToggleFocus => "switch stdout/stderr focus",
+            Command::TogglePane => "switch list/detail focus",
             Command::RightDwim => "expand / move to first child",
             Command::LeftDwim => "collapse / move to parent",
             Command::ScrollDown => "scroll down",

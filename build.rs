@@ -125,6 +125,7 @@ const VALID_COMMANDS: &[&str] = &[
     "ToggleDetail",
     "OpenDetail",
     "ToggleFocus",
+    "TogglePane",
     "RightDwim",
     "LeftDwim",
     "ScrollDown",

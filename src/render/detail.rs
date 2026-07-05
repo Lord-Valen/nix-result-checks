@@ -5,14 +5,27 @@
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::Stylize,
+    style::{Color, Modifier, Style},
     text::Text,
     widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
 };
 
 use super::PanelBounds;
 use crate::app::{App, EntryKind};
-use crate::ui::{DetailFocus, Ui};
+use crate::ui::{DetailFocus, Pane, Ui};
+
+/// Border style for a detail sub-panel: dimmed while the list has
+/// keyboard focus, bold on whichever sub-panel (stdout/stderr) is
+/// focused once the detail pane itself has focus.
+fn border_style(pane: Pane, sub_focused: bool) -> Style {
+    if pane != Pane::Detail {
+        Style::new().fg(Color::DarkGray)
+    } else if sub_focused {
+        Style::new().add_modifier(Modifier::BOLD)
+    } else {
+        Style::new()
+    }
+}
 
 pub fn render_detail(
     frame: &mut Frame,
@@ -64,6 +77,7 @@ pub fn render_detail(
         .block(
             Block::default()
                 .borders(Borders::ALL)
+                .border_style(border_style(ui.pane, false))
                 .title(entry.name.as_str()),
         ),
         rows[0],
@@ -75,7 +89,7 @@ pub fn render_detail(
         &entry.stdout,
         ui.detail.stdout_scroll,
         ui.detail.stdout_h_scroll,
-        ui.detail.focus == DetailFocus::Stdout,
+        border_style(ui.pane, ui.detail.focus == DetailFocus::Stdout),
         cols[0],
     );
     render_scrollable_panel(
@@ -84,7 +98,7 @@ pub fn render_detail(
         &entry.stderr,
         ui.detail.stderr_scroll,
         ui.detail.stderr_h_scroll,
-        ui.detail.focus == DetailFocus::Stderr,
+        border_style(ui.pane, ui.detail.focus == DetailFocus::Stderr),
         cols[1],
     );
 
@@ -97,7 +111,7 @@ fn render_scrollable_panel(
     content: &str,
     v_scroll: u16,
     h_scroll: u16,
-    focused: bool,
+    style: Style,
     area: Rect,
 ) {
     let display = if content.is_empty() {
@@ -111,11 +125,10 @@ fn render_scrollable_panel(
         (count + 1, max_w.max(l.chars().count()))
     });
 
-    let block = if focused {
-        Block::default().borders(Borders::ALL).title(title).bold()
-    } else {
-        Block::default().borders(Borders::ALL).title(title)
-    };
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(style)
+        .title(title);
 
     frame.render_widget(
         Paragraph::new(Text::raw(display))

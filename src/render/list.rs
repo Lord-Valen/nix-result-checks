@@ -162,8 +162,14 @@ pub fn render_list(frame: &mut Frame, app: &App, ui: &mut Ui, area: Rect) {
         String::new()
     };
     let (pass, fail, skip) = app.counts();
+    let border_style = if ui.pane == crate::ui::Pane::List {
+        Style::new()
+    } else {
+        Style::new().fg(Color::DarkGray)
+    };
     let block = Block::default()
         .borders(Borders::ALL)
+        .border_style(border_style)
         .padding(Padding::horizontal(1))
         .title("nix-result-checks")
         .title_bottom(status.as_str())

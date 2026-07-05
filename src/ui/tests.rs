@@ -101,6 +101,30 @@ fn select_prev_clamps_at_start() {
     assert_eq!(ui.list.state.selected(), Some(0));
 }
 
+#[test]
+fn select_next_scrolls_detail_instead_of_moving_list_in_detail_pane() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_app(3);
+    *ui.list.state.selected_mut() = Some(0);
+    ui.detail.key = Some("check-0".to_string());
+    ui.detail.open = true;
+    ui.pane = Pane::Detail;
+    ui.execute(Command::SelectNext, &mut app);
+    assert_eq!(ui.list.state.selected(), Some(0), "list must not move");
+    assert_eq!(ui.detail.stdout_scroll, 1, "scrolled instead");
+    assert_eq!(ui.pane, Pane::Detail, "stays in detail pane");
+}
+
+#[test]
+fn select_next_suite_is_a_noop_in_detail_pane() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_suite_app();
+    *ui.list.state.selected_mut() = Some(0); // Suite("db")
+    ui.pane = Pane::Detail;
+    ui.execute(Command::NextSuite, &mut app);
+    assert_eq!(ui.list.state.selected(), Some(0));
+}
+
 // -- Dwim --
 
 #[test]
@@ -220,6 +244,109 @@ fn left_dwim_on_top_level_flat_check_is_a_noop() {
     *ui.list.state.selected_mut() = Some(0);
     assert!(!ui.execute(Command::LeftDwim, &mut app));
     assert_eq!(ui.list.state.selected(), Some(0));
+}
+
+// -- Pane --
+
+#[test]
+fn open_detail_switches_to_detail_pane() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_app(1);
+    *ui.list.state.selected_mut() = Some(0);
+    ui.detail.key = Some("check-0".to_string());
+    assert!(ui.execute(Command::OpenDetail, &mut app));
+    assert_eq!(ui.pane, Pane::Detail);
+}
+
+#[test]
+fn toggle_detail_opening_leaves_pane_at_list() {
+    // 'd' is a quick peek, not a focus request — walking down the list
+    // with j/k while glancing at each check's detail must keep working.
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_app(1);
+    ui.detail.key = Some("check-0".to_string());
+    ui.execute(Command::ToggleDetail, &mut app);
+    assert!(ui.detail.open);
+    assert_eq!(ui.pane, Pane::List);
+}
+
+#[test]
+fn toggle_detail_closing_leaves_pane_unchanged() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_app(1);
+    ui.detail.key = Some("check-0".to_string());
+    ui.detail.open = true;
+    ui.pane = Pane::Detail;
+    ui.execute(Command::ToggleDetail, &mut app);
+    assert!(!ui.detail.open);
+    assert_eq!(ui.pane, Pane::Detail);
+}
+
+#[test]
+fn togglepane_enters_and_exits_detail() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_app(1);
+    ui.detail.key = Some("check-0".to_string());
+    assert!(ui.execute(Command::TogglePane, &mut app));
+    assert_eq!(ui.pane, Pane::Detail);
+    assert!(ui.detail.open, "entering detail pane opens the panel");
+    assert!(ui.execute(Command::TogglePane, &mut app));
+    assert_eq!(ui.pane, Pane::List);
+}
+
+#[test]
+fn togglepane_is_a_noop_with_nothing_to_show() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_app(1);
+    assert!(!ui.execute(Command::TogglePane, &mut app));
+    assert_eq!(ui.pane, Pane::List);
+}
+
+#[test]
+fn right_dwim_is_suppressed_in_detail_pane() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_app_with_children(); // folded check with children
+    *ui.list.state.selected_mut() = Some(0);
+    ui.pane = Pane::Detail;
+    assert!(!ui.execute(Command::RightDwim, &mut app));
+    assert!(app.folded_checks.contains("snap"), "must not unfold");
+}
+
+#[test]
+fn left_dwim_scrolls_instead_of_folding_in_detail_pane() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_app_with_children();
+    *ui.list.state.selected_mut() = Some(0); // Check("snap"), unfolded
+    app.toggle_children("snap");
+    ui.pane = Pane::Detail;
+    ui.detail.stdout_h_scroll = 5; // not fully scrolled left
+    assert!(!ui.execute(Command::LeftDwim, &mut app));
+    assert!(!app.folded_checks.contains("snap"), "must not fold");
+    assert_eq!(ui.pane, Pane::Detail);
+}
+
+#[test]
+fn left_dwim_exits_detail_pane_and_folds_when_scrolled_fully_left() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_app_with_children();
+    *ui.list.state.selected_mut() = Some(0); // Check("snap"), unfolded
+    app.toggle_children("snap");
+    ui.pane = Pane::Detail;
+    ui.detail.stdout_h_scroll = 0;
+    assert!(ui.execute(Command::LeftDwim, &mut app));
+    assert_eq!(ui.pane, Pane::List);
+    assert!(app.folded_checks.contains("snap"));
+}
+
+#[test]
+fn selecting_next_returns_to_list_pane() {
+    let (mut ui, _rx) = make_ui();
+    let mut app = make_app(3);
+    *ui.list.state.selected_mut() = Some(0);
+    // Not in the detail pane — SelectNext moves the list as usual and,
+    // per after_selection_change, keeps/returns pane at List.
+    ui.execute(Command::SelectNext, &mut app);
+    assert_eq!(ui.pane, Pane::List);
 }
 
 // -- Toggle detail --

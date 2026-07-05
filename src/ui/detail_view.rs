@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 
 use crate::app::{App, VisibleItem};
+use crate::config::Command;
 use crate::render::PanelBounds;
 use crate::ui::clamp_u16;
 
@@ -58,6 +59,30 @@ pub struct DetailView {
 }
 
 impl DetailView {
+    /// Handles every detail-panel command: opening/closing, sub-focus,
+    /// and scrolling — including the detail-pane translation of the six
+    /// focus-dependent commands (scroll instead of navigate/fold, no
+    /// suite-jump equivalent). `LeftDwim`'s "already scrolled fully
+    /// left" exit case is handled by the caller instead, since backing
+    /// out to the list pane is a cross-view transition this type has no
+    /// way to know about.
+    pub fn execute(&mut self, cmd: Command, app: &App) -> bool {
+        match cmd {
+            Command::SelectNext | Command::ScrollDown => self.scroll_v(app, u16::saturating_add, 1),
+            Command::SelectPrev | Command::ScrollUp => self.scroll_v(app, u16::saturating_sub, 1),
+            Command::RightDwim | Command::ScrollRight => self.scroll_h(app, u16::saturating_add, 1),
+            Command::LeftDwim | Command::ScrollLeft => self.scroll_h(app, u16::saturating_sub, 1),
+            Command::ToggleDetail => self.toggle(),
+            Command::OpenDetail => self.open(),
+            Command::ToggleFocus => self.toggle_focus(),
+            Command::PageDown => self.scroll_v(app, u16::saturating_add, 10),
+            Command::PageUp => self.scroll_v(app, u16::saturating_sub, 10),
+            // NextSuite/PrevSuite (no detail equivalent) and ToggleSuite/
+            // ToggleDwim/Quit/etc. (not this view's business) alike.
+            _ => false,
+        }
+    }
+
     /// Updates `key` to the check at `idx`, resolving a suite header to its
     /// first check. Leaves `key` unchanged if `idx` doesn't resolve to one.
     pub fn sync_selection(&mut self, app: &App, idx: usize) {
@@ -181,6 +206,14 @@ impl DetailView {
         match self.focus {
             DetailFocus::Stdout => &mut self.stdout_h_scroll,
             DetailFocus::Stderr => &mut self.stderr_h_scroll,
+        }
+    }
+
+    /// The focused sub-panel's current horizontal scroll offset.
+    pub fn focused_h_scroll(&self) -> u16 {
+        match self.focus {
+            DetailFocus::Stdout => self.stdout_h_scroll,
+            DetailFocus::Stderr => self.stderr_h_scroll,
         }
     }
 

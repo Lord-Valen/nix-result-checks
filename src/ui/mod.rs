@@ -11,7 +11,7 @@ use ratatui::crossterm::event::MouseEventKind;
 
 pub use detail_view::DetailFocus;
 use detail_view::DetailView;
-use list_view::ListView;
+use list_view::{DwimOutcome, ListView};
 
 use crate::app::{App, VisibleItem};
 use crate::config::{Command, Keymap};
@@ -23,11 +23,23 @@ pub fn clamp_u16(n: usize) -> u16 {
     u16::try_from(n).unwrap_or(u16::MAX)
 }
 
+/// Which side of the UI keyboard input targets. While `Detail`, Left/Right
+/// dwim don't fold or navigate the list — they're reserved for scrolling
+/// the detail panel, so a check's own (possibly long) output stays
+/// reachable even when the check has children of its own.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Pane {
+    #[default]
+    List,
+    Detail,
+}
+
 /// Top-level window state: which overlay is showing, background task
 /// status, and the two panels' view state.
 pub struct Ui {
     pub list: ListView,
     pub detail: DetailView,
+    pub pane: Pane,
     pub toast: Option<String>,
     pub show_help: bool,
     pub rebuilding: bool,
@@ -40,6 +52,7 @@ impl Ui {
         Self {
             list: ListView::default(),
             detail: DetailView::default(),
+            pane: Pane::default(),
             toast: None,
             show_help: false,
             rebuilding: true,
@@ -119,30 +132,34 @@ impl Ui {
     }
 
     /// Execute a command. Returns `true` if the command was handled.
+    ///
+    /// `Ui` just tracks which pane has focus and forwards: the six
+    /// commands that mean two different things depending on focus
+    /// (list navigation vs. detail scrolling) go to whichever of
+    /// `self.list`/`self.detail` owns that meaning; everything else is
+    /// pane-independent and forwards straight to `self.detail` (or is
+    /// truly `Ui`'s own — quitting, reloading, overlay toggles, the
+    /// pane switch itself).
     pub fn execute(&mut self, cmd: Command, app: &mut App) -> bool {
         match cmd {
+            Command::SelectNext
+            | Command::SelectPrev
+            | Command::NextSuite
+            | Command::PrevSuite
+            | Command::RightDwim
+            | Command::LeftDwim => match self.pane {
+                Pane::List => {
+                    let outcome = self.list.execute(cmd, app);
+                    self.apply_dwim_outcome(outcome, app)
+                }
+                Pane::Detail => self.execute_in_detail(cmd, app),
+            },
             Command::Quit => {
                 let _ = self.tx.send(Event::Quit);
                 true
             }
             Command::Reload => {
                 let _ = self.tx.send(Event::Reload);
-                true
-            }
-            Command::SelectNext => {
-                self.select_next(app);
-                true
-            }
-            Command::SelectPrev => {
-                self.select_prev(app);
-                true
-            }
-            Command::NextSuite => {
-                self.select_next_suite(app);
-                true
-            }
-            Command::PrevSuite => {
-                self.select_prev_suite(app);
                 true
             }
             Command::ToggleDwim => {
@@ -153,37 +170,89 @@ impl Ui {
                     None => false,
                 }
             }
-            Command::ToggleSuite => {
-                self.toggle_suite(app);
-                true
+            Command::ToggleSuite => self.list.toggle_suite(app),
+            // Deliberately doesn't touch `pane`: opening the panel with
+            // 'd' is a quick peek, not a request to move keyboard focus —
+            // otherwise it'd hijack Up/Down away from list navigation, and
+            // walking down the list with j/k while glancing at each
+            // check's detail (a common flow) would break after the first
+            // press. Only Tab/TogglePane and the Left/Right dead-end
+            // fallback (OpenDetail) actually switch pane.
+            Command::OpenDetail => {
+                let handled = self.detail.execute(cmd, app);
+                if handled {
+                    self.pane = Pane::Detail;
+                }
+                handled
             }
-            Command::ToggleDetail => self.detail.toggle(),
-            Command::OpenDetail => self.detail.open(),
-            Command::ToggleFocus => self.detail.toggle_focus(),
-            Command::RightDwim => self.right_dwim(app),
-            Command::LeftDwim => self.left_dwim(app),
-            Command::ScrollLeft => self.detail.scroll_h(app, u16::saturating_sub, 1),
-            Command::ScrollRight => self.detail.scroll_h(app, u16::saturating_add, 1),
-            Command::ScrollDown => self.detail.scroll_v(app, u16::saturating_add, 1),
-            Command::ScrollUp => self.detail.scroll_v(app, u16::saturating_sub, 1),
-            Command::PageDown => self.detail.scroll_v(app, u16::saturating_add, 10),
-            Command::PageUp => self.detail.scroll_v(app, u16::saturating_sub, 10),
+            Command::TogglePane => match self.pane {
+                Pane::List => {
+                    if self.detail.execute(Command::OpenDetail, app) {
+                        self.pane = Pane::Detail;
+                        true
+                    } else {
+                        false
+                    }
+                }
+                Pane::Detail => {
+                    self.pane = Pane::List;
+                    true
+                }
+            },
             Command::ShowHelp => {
                 self.show_help = !self.show_help;
                 true
             }
+            // ToggleDetail, ToggleFocus, Scroll*, Page*: pure detail-panel
+            // business with no pane bookkeeping — forward directly.
+            _ => self.detail.execute(cmd, app),
         }
     }
 
+    /// Syncs the detail panel and pane when a fold/navigate attempt moved
+    /// the selection; a fold/unfold with no move needs neither.
+    fn apply_dwim_outcome(&mut self, outcome: DwimOutcome, app: &App) -> bool {
+        match outcome {
+            DwimOutcome::Moved => {
+                self.after_selection_change(app);
+                true
+            }
+            DwimOutcome::Toggled => true,
+            DwimOutcome::Unhandled => false,
+        }
+    }
+
+    /// Detail-pane meaning of the six focus-dependent commands: scroll
+    /// its content instead (`DetailView::execute` handles that
+    /// translation). Left, once already scrolled fully left, is the one
+    /// exception handled here: it exits back to the list pane and
+    /// performs that pane's normal fold-or-move-to-parent action in the
+    /// same press, so backing out never costs an extra keypress — a
+    /// cross-view transition neither view can decide on its own.
+    fn execute_in_detail(&mut self, cmd: Command, app: &mut App) -> bool {
+        if cmd == Command::LeftDwim && self.detail.focused_h_scroll() == 0 {
+            self.pane = Pane::List;
+            let outcome = self.list.execute(Command::LeftDwim, app);
+            return self.apply_dwim_outcome(outcome, app);
+        }
+        self.detail.execute(cmd, app)
+    }
+
     /// Syncs the detail panel to the current selection and resets its
-    /// scroll position, as happens after any navigation.
+    /// scroll position, as happens after any navigation. Also returns
+    /// focus to the list — navigating away from what you were looking at
+    /// implies you're browsing again, not still inspecting it.
     fn after_selection_change(&mut self, app: &App) {
         if let Some(idx) = self.list.selected() {
             self.detail.sync_selection(app, idx);
         }
         self.detail.reset_scrolls();
+        self.pane = Pane::List;
     }
 
+    /// Moves list selection down, used directly by the mouse wheel
+    /// handler, which decides list vs. detail by pointer position rather
+    /// than `pane`.
     fn select_next(&mut self, app: &App) {
         if self.list.select_next(app) {
             self.after_selection_change(app);
@@ -194,105 +263,6 @@ impl Ui {
         if self.list.select_prev(app) {
             self.after_selection_change(app);
         }
-    }
-
-    fn select_next_suite(&mut self, app: &App) {
-        if self.list.select_next_suite(app) {
-            self.after_selection_change(app);
-        }
-    }
-
-    fn select_prev_suite(&mut self, app: &App) {
-        if self.list.select_prev_suite(app) {
-            self.after_selection_change(app);
-        }
-    }
-
-    fn toggle_suite(&mut self, app: &mut App) {
-        let Some(idx) = self.list.selected() else {
-            return;
-        };
-        let visible = app.visible_items();
-        if let Some(VisibleItem::Suite(name)) = visible.get(idx) {
-            let name = name.clone();
-            app.toggle_suite(&name);
-        }
-    }
-
-    /// Unfolds the selected suite/check if folded; otherwise moves to its
-    /// first child (the next row, since `visible_items` is depth-first).
-    fn right_dwim(&mut self, app: &mut App) -> bool {
-        let Some(idx) = self.list.selected() else {
-            return false;
-        };
-        let visible = app.visible_items();
-        let Some(item) = visible.get(idx) else {
-            return false;
-        };
-        match item {
-            VisibleItem::Suite(name) if app.folded_suites.contains(name) => {
-                app.toggle_suite(&name.clone());
-                true
-            }
-            VisibleItem::Check { key, .. }
-                if app.child_keys.contains_key(key) && app.folded_checks.contains(key) =>
-            {
-                app.toggle_children(&key.clone());
-                true
-            }
-            _ if idx + 1 < visible.len() && depth_of(item) < depth_of(&visible[idx + 1]) => {
-                *self.list.state.selected_mut() = Some(idx + 1);
-                self.after_selection_change(app);
-                true
-            }
-            _ => false,
-        }
-    }
-
-    /// Folds the selected suite/check if unfolded; otherwise moves to its
-    /// parent (the nearest preceding row at a shallower depth).
-    fn left_dwim(&mut self, app: &mut App) -> bool {
-        let Some(idx) = self.list.selected() else {
-            return false;
-        };
-        let visible = app.visible_items();
-        let Some(item) = visible.get(idx) else {
-            return false;
-        };
-        match item {
-            VisibleItem::Suite(name) if !app.folded_suites.contains(name) => {
-                app.toggle_suite(&name.clone());
-                true
-            }
-            VisibleItem::Check { key, .. }
-                if app.child_keys.contains_key(key) && !app.folded_checks.contains(key) =>
-            {
-                app.toggle_children(&key.clone());
-                true
-            }
-            _ => {
-                let cur_depth = depth_of(item);
-                match (0..idx).rev().find(|&i| depth_of(&visible[i]) < cur_depth) {
-                    Some(parent_idx) => {
-                        *self.list.state.selected_mut() = Some(parent_idx);
-                        self.after_selection_change(app);
-                        true
-                    }
-                    None => false,
-                }
-            }
-        }
-    }
-}
-
-/// Ordering depth used by `right_dwim`/`left_dwim` to find a parent or
-/// first child in the depth-first `visible_items` list. `None` (a suite
-/// header) sorts shallower than any check row, including flat top-level
-/// checks, via `Option`'s derived `Ord`.
-fn depth_of(item: &VisibleItem) -> Option<usize> {
-    match item {
-        VisibleItem::Suite(_) => None,
-        VisibleItem::Check { depth, .. } => Some(*depth),
     }
 }
 

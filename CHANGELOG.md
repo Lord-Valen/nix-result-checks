@@ -16,6 +16,19 @@ CI enforces this for changes touching `src/` or `nix/`.
 
 ## [Unreleased]
 
+### Added
+
+- Checks can nest further report entries via `passthru.children` (a list
+  of `{ name; check; }`), independent of the existing flat `suite`
+  grouping. Snapshot checks use it to expose their wrapped check's
+  actual output, named after that check's own name, as a foldable
+  child in the TUI (folded by default).
+- TUI: Left/Right now fold/unfold a suite or a check's children, or
+  navigate to its first child/parent once already unfolded. Tab
+  switches keyboard focus between the check list and the detail panel;
+  while the detail panel has focus, Left/Right scroll it instead.
+  Ctrl+Left/Ctrl+Right swap stdout/stderr focus (moved off Tab).
+
 ### Fixed
 
 - TUI check list no longer resets its scroll position on every render.
