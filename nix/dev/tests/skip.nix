@@ -34,7 +34,7 @@
     in
     {
       resultChecks = {
-        skipChecks = [ "skip:list-actual" ];
+        skipChecks = [ "skip:by-key" ];
 
         checks.skip = {
           func =
@@ -61,7 +61,7 @@
               exit 1
             '';
 
-          list-actual = mkResult "skip-list-actual" ''
+          by-key = mkResult "skip-by-key" ''
             echo "This should be skipped"
             exit 1
           '';

@@ -59,7 +59,22 @@ lib.extendMkDerivation {
     }:
     {
       name = "snapshot-${name}";
-      passthru.kind = "snapshot";
+      passthru = {
+        kind = "snapshot";
+        checkName = name;
+        # Exposes the wrapped check so report generators can surface its
+        # actual output as a `children` entry, independent of whether the
+        # assertions above passed or failed. Named after the wrapped
+        # check's own name where available, so a snapshot wrapping
+        # `mkResult "round-trip-actual" ...` shows a child named
+        # "round-trip-actual", not an anonymous "actual".
+        children = [
+          {
+            name = resultCheck.passthru.checkName or "actual";
+            check = resultCheck;
+          }
+        ];
+      };
       command =
         lib.optionalString (exitCode != null) ''
           printf '%s' ${lib.escapeShellArg exitCode} > "$TMPDIR/expected-exitCode"

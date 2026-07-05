@@ -5,7 +5,6 @@
 {
   perSystem =
     {
-      config,
       pkgs,
       ...
     }:
@@ -58,18 +57,8 @@
       resultChecks.checks.result =
         let
           inherit (pkgs.resultChecks) mkResult mkSnapshot;
-          inherit (config.resultChecks) checks;
         in
         {
-          passing-actual = mkResult "test-passing-actual" ''
-            echo "Starting test suite..." >&2
-            echo "Running unit tests..." >&2
-            echo "Test 1: PASS"
-            echo "Test 2: PASS"
-            echo "All tests completed successfully" >&2
-            exit 0
-          '';
-
           passing =
             mkSnapshot "test-passing" {
               exitCode = "0";
@@ -83,7 +72,14 @@
                 All tests completed successfully
               '';
             }
-            <| checks.result.passing-actual;
+            <| mkResult "test-passing-actual" ''
+              echo "Starting test suite..." >&2
+              echo "Running unit tests..." >&2
+              echo "Test 1: PASS"
+              echo "Test 2: PASS"
+              echo "All tests completed successfully" >&2
+              exit 0
+            '';
 
           failing =
             mkSnapshot "test-failing" {
