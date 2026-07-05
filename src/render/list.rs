@@ -42,7 +42,7 @@ mod tests {
         }
         let (tx, _rx) = std::sync::mpsc::channel();
         let mut ui = Ui::new(tx);
-        *ui.list_state.selected_mut() = Some(0);
+        *ui.list.state.selected_mut() = Some(0);
         let backend = TestBackend::new(width, height);
         let mut terminal = Terminal::new(backend).unwrap();
         let keymap = Keymap::qwerty();
@@ -88,23 +88,23 @@ mod tests {
         let mut terminal = Terminal::new(backend).unwrap();
         let keymap = Keymap::qwerty();
 
-        *ui.list_state.selected_mut() = Some(9);
+        *ui.list.state.selected_mut() = Some(9);
         terminal
             .draw(|frame| {
                 render(frame, &app, &mut ui, &keymap);
             })
             .unwrap();
-        let offset_after_scroll = ui.list_state.offset();
+        let offset_after_scroll = ui.list.state.offset();
         assert!(offset_after_scroll > 0, "expected a scroll to occur");
 
-        *ui.list_state.selected_mut() = Some(6);
+        *ui.list.state.selected_mut() = Some(6);
         terminal
             .draw(|frame| {
                 render(frame, &app, &mut ui, &keymap);
             })
             .unwrap();
         assert_eq!(
-            ui.list_state.offset(),
+            ui.list.state.offset(),
             offset_after_scroll,
             "selecting an item already in view must not move the scroll offset"
         );
@@ -175,7 +175,7 @@ pub fn render_list(frame: &mut Frame, app: &App, ui: &mut Ui, area: Rect) {
         .into_iter()
         .enumerate()
         .map(|(idx, item)| {
-            let selected = ui.list_state.selected() == Some(idx);
+            let selected = ui.list.state.selected() == Some(idx);
             match item {
                 VisibleItem::Suite(name) => {
                     let folded = app.folded_suites.contains(&name);
@@ -204,5 +204,5 @@ pub fn render_list(frame: &mut Frame, app: &App, ui: &mut Ui, area: Rect) {
         })
         .collect();
 
-    frame.render_stateful_widget(List::new(items), inner, &mut ui.list_state);
+    frame.render_stateful_widget(List::new(items), inner, &mut ui.list.state);
 }

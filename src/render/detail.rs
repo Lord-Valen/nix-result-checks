@@ -39,7 +39,7 @@ pub fn render_detail(
         width: usize::from(cols[1].width.saturating_sub(2)),
     };
 
-    let Some(key) = &ui.detail_key else {
+    let Some(key) = &ui.detail.key else {
         return (stdout_bounds, stderr_bounds);
     };
     let Some(entry) = app.entries.get(key) else {
@@ -73,18 +73,18 @@ pub fn render_detail(
         frame,
         "stdout",
         &entry.stdout,
-        ui.stdout_scroll,
-        ui.stdout_h_scroll,
-        ui.detail_focus == DetailFocus::Stdout,
+        ui.detail.stdout_scroll,
+        ui.detail.stdout_h_scroll,
+        ui.detail.focus == DetailFocus::Stdout,
         cols[0],
     );
     render_scrollable_panel(
         frame,
         "stderr",
         &entry.stderr,
-        ui.stderr_scroll,
-        ui.stderr_h_scroll,
-        ui.detail_focus == DetailFocus::Stderr,
+        ui.detail.stderr_scroll,
+        ui.detail.stderr_h_scroll,
+        ui.detail.focus == DetailFocus::Stderr,
         cols[1],
     );
 

@@ -78,7 +78,7 @@ fn render(
     keymap: &Keymap,
 ) -> Option<(PanelBounds, PanelBounds)> {
     let area = frame.area();
-    let bounds = if ui.detail_open && ui.detail_key.is_some() {
+    let bounds = if ui.detail.open && ui.detail.key.is_some() {
         let list_width = Ui::list_panel_width(app);
         let chunks = Layout::default()
             .direction(Direction::Horizontal)
