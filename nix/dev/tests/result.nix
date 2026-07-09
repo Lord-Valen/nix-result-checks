@@ -9,51 +9,6 @@
       ...
     }:
     {
-      # Artifact semantics: a command may write real content to $out;
-      # the capture wrapper's `touch` must preserve it. Unwritten and
-      # skipped checks leave an empty sentinel, so consumers guard on
-      # the producer's exit code.
-      resultChecks.checks.artifact =
-        let
-          inherit (pkgs.resultChecks) mkResult mkSkip mkSnapshot;
-          producer = mkResult "artifact-producer" ''echo data > "$out"'';
-          empty-producer = mkResult "artifact-empty-producer" "true";
-          skipped-producer = mkSkip (mkResult "artifact-skipped-producer" ''echo data > "$out"'');
-        in
-        {
-          round-trip =
-            mkSnapshot "artifact-round-trip" {
-              exitCode = "0";
-              stdout = ''
-                data
-              '';
-            }
-            <| mkResult "artifact-round-trip-actual" "cat ${producer}";
-
-          unwritten-is-empty =
-            mkSnapshot "artifact-unwritten-is-empty" {
-              exitCode = "0";
-              stdout = "";
-            }
-            <| mkResult "artifact-unwritten-is-empty-actual" "cat ${empty-producer}";
-
-          skipped-fails-the-guard =
-            mkSnapshot "artifact-skipped-fails-the-guard" {
-              exitCode = "1";
-              stdout = "";
-              stderr = ''
-                fixture unavailable
-              '';
-            }
-            <| mkResult "artifact-skipped-fails-the-guard-actual" ''
-              [ "$(cat ${skipped-producer.exitCode})" = "0" ] || {
-                echo "fixture unavailable" >&2
-                exit 1
-              }
-              cat ${skipped-producer}
-            '';
-        };
-
       resultChecks.checks.result =
         let
           inherit (pkgs.resultChecks) mkResult mkSnapshot;

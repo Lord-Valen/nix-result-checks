@@ -28,6 +28,12 @@ CI enforces this for changes touching `src/` or `nix/`.
   switches keyboard focus between the check list and the detail panel;
   while the detail panel has focus, Left/Right scroll it instead.
   Ctrl+Left/Ctrl+Right swap stdout/stderr focus (moved off Tab).
+- `requireSuccess`: a result check derivation always succeeds
+  regardless of its command's outcome,
+  so a producer's `$out` is touched whether it passed, failed, or was skipped.
+  This helper distills the exit-code guard a dependent check needs
+  before trusting a producer's `stdout`/`stderr` as fixture data,
+  instead of hand-writing it at every call site.
 
 ### Fixed
 

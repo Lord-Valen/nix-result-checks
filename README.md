@@ -57,6 +57,8 @@ All functions are available under `pkgs.resultChecks` via the overlay.
 | `mkReport`       | `checks: drv`                                             | Report package for the derivation half of a check set (flat checks and suites; eval checks ignored).                                                                                  |
 | `mkEvalChecks`   | `checks: attrs`                                           | Lazy entries tree for the eval half of a check set, keyed by check then test — the shape behind `resultChecks.<system>.evalChecks`.                                                   |
 | `mkSkip`         | `(drv \| evalCheck) -> same`                              | Skip any check. Derivations are overridden to produce empty outputs with no dependencies built; eval checks are marked so their tests are never evaluated.                             |
+| `requireSuccess` | `(drv \| [drv]): command: string`                         | Wrap `command` in a guard on one or more checks' `exitCode`, checking every one before running `command`. Message is derived from each check's own name.                             |
+| `requireSuccessWith` | `{ checks, message, command }: string`                | Low-level `requireSuccess`. `checks` is a list; `message` is printed to stderr for whichever one fails.                                                                               |
 
 ### Generators
 
@@ -244,17 +246,15 @@ A failed fixture fails its dependents as ordinary build failures.
 
 When the setup's own verdict belongs in the report,
 make it a result check that writes the artifact to `$out`,
-and guard downstream on its exit code to fail gracefully:
+and guard downstream on its exit code to fail gracefully.
+`requireSuccess` distills that guard into a reusable snippet,
+deriving its message from the fixture's own name:
 
 ```nix
 {
   fixture = resultChecks.mkResult "make-db" "expensive-setup > $out";
 
-  queries = resultChecks.mkResult "queries" ''
-    [ "$(cat ${checks.fixture.exitCode})" = "0" ] || {
-      echo "setup failed" >&2
-      exit 1
-    }
+  queries = resultChecks.mkResult "queries" <| resultChecks.requireSuccess checks.fixture ''
     run-queries ${checks.fixture}
   '';
 }
