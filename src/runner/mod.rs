@@ -10,7 +10,9 @@
 //! stub derivation that is never instantiated; `--apply` then lifts the
 //! entry into the `extraValue` field of each NDJSON line. When
 //! nix-eval-jobs is unavailable, the same tree is fetched in one piece
-//! with `nix eval --json` instead (sequential, but dependency-free).
+//! instead (sequential, but dependency-free): `nix eval --json` in
+//! flake mode, `nix-instantiate --eval --strict --json` in file mode
+//! (which stays flakeless and needs no experimental features).
 
 use serde::Deserialize;
 use serde_json::Value;

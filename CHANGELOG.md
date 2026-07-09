@@ -35,6 +35,9 @@ CI enforces this for changes touching `src/` or `nix/`.
   Previously the viewport recomputed from scratch each frame, so moving
   the selection could jump the whole list instead of just scrolling the
   minimum needed to keep the selection visible.
+- Corrected the `src/runner` module doc comment,
+  which described only one nix-eval-jobs-unavailable fallback (`nix eval --json`)
+  when file mode actually uses a different, flakeless one (`nix-instantiate`).
 
 ## [2.0.0] - 2026-06-12
 
