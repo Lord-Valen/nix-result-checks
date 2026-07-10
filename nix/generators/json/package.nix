@@ -133,7 +133,7 @@ let
         --arg type "${check.passthru.kind or "result"}" \
         --arg status "$status" \
         --arg name "${name}" \
-        --argjson suite '${builtins.toJSON suite}' \
+        --argjson suite '${lib.toJSON suite}' \
         --arg exitCode "$exitCode" \
         --rawfile stdout ${check.stdout} \
         --rawfile stderr ${check.stderr} \
