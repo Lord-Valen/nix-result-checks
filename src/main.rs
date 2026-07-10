@@ -6,6 +6,7 @@
 
 mod app;
 mod config;
+mod errorlog;
 mod event;
 mod input;
 mod render;
@@ -233,7 +234,10 @@ fn run(
                 };
             }
             Event::Error(e) => {
-                ui.toast = Some(format!("{e:#}"));
+                app.mark_error();
+                let full = format!("{e:#}");
+                errorlog::append(&full);
+                ui.toast = Some(format!("{full}{}", errorlog::hint()));
             }
             Event::Reload => {
                 app.bump_generation();

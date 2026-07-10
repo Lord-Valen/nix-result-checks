@@ -67,8 +67,13 @@ pub fn run(
                 }
             }
             Event::Error(e) => {
-                eprintln!("error: {e:#}");
-                std::process::exit(1);
+                app.mark_error();
+                let full = format!("{e:#}");
+                crate::errorlog::append(&full);
+                eprintln!("error: {full}{}", crate::errorlog::hint());
+                if one_shot {
+                    std::process::exit(1);
+                }
             }
             Event::Reload => {
                 app.bump_generation();

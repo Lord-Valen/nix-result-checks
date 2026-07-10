@@ -108,6 +108,11 @@ pub struct App {
     pub folded_checks: HashSet<String>,
     generation: u64,
     entry_generations: HashMap<String, u64>,
+    /// Set when a source (report or eval) fails to report in during the
+    /// current generation, e.g. a transient nix-eval-jobs failure.
+    /// `prune` checks this so a cycle that only partially refreshed
+    /// doesn't delete everything it failed to re-confirm.
+    had_error: bool,
 }
 
 impl App {
@@ -120,11 +125,16 @@ impl App {
             folded_checks: HashSet::new(),
             generation: 0,
             entry_generations: HashMap::new(),
+            had_error: false,
         }
     }
 
     pub fn bump_generation(&mut self) {
         self.generation += 1;
+    }
+
+    pub fn mark_error(&mut self) {
+        self.had_error = true;
     }
 
     pub fn upsert(&mut self, entry: CheckEntry) {
@@ -184,7 +194,16 @@ impl App {
         }
     }
 
+    /// Drops entries not re-confirmed this generation — except when a
+    /// source (report or eval) failed to report in at all this cycle
+    /// (`mark_error`), since then "not re-confirmed" means "failed to
+    /// refresh," not "genuinely gone." Pruning on a partial failure
+    /// would otherwise delete every entry that source normally owns,
+    /// even though they're still perfectly valid.
     pub fn prune(&mut self) {
+        if std::mem::take(&mut self.had_error) {
+            return;
+        }
         let current = self.generation;
         self.entry_generations.retain(|_, g| *g >= current);
         let live: HashSet<String> = self.entry_generations.keys().cloned().collect();

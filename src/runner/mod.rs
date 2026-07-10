@@ -130,6 +130,7 @@ fn nej_base_args(workers: usize) -> Vec<String> {
         "false",
         "--no-instantiate",
         "--force-recurse",
+        "--show-trace",
         "--workers",
         &workers.to_string(),
     ]

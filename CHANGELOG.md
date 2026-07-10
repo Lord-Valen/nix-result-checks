@@ -51,6 +51,20 @@ CI enforces this for changes touching `src/` or `nix/`.
   forcing `mkSkip`'s build on every report build;
   it now checks `passthru.skip` at eval time
   and never references those outputs for a skipped check at all.
+- A `nix-eval-jobs` failure no longer wipes every eval-check entry from
+  the TUI/`--stream` output.
+  Previously any failed evaluation cycle
+  (e.g. a transient error surfaced by the file watcher)
+  was treated the same as "nothing reported in,"
+  pruning entries that source normally owns
+  even though they were still valid;
+  a cycle that hit an error now skips pruning instead.
+  `--stream --watch` also no longer exits the whole process
+  on a transient error — only genuine one-shot runs do.
+  The full error (previously truncated to fit the toast popup)
+  is now also logged in full to `$XDG_STATE_HOME/nrc/errors.log`
+  (`~/.local/state/nrc/errors.log` by default),
+  with the toast/stderr message pointing at it.
 
 ## [2.0.0] - 2026-06-12
 
