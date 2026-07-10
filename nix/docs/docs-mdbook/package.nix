@@ -41,6 +41,8 @@ let
     mkResult = ../../build-support/mkResult.nix;
     mkSnapshot = ../../build-support/mkSnapshot.nix;
     mkEval = ../../build-support/mkEval.nix;
+    requireSuccess = ../../build-support/requireSuccess.nix;
+    requireSuccessWith = ../../build-support/requireSuccessWith.nix;
   };
   generators = {
     json = ../../generators/json/package.nix;

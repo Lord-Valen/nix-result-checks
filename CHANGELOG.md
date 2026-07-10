@@ -65,6 +65,9 @@ CI enforces this for changes touching `src/` or `nix/`.
   is now also logged in full to `$XDG_STATE_HOME/nrc/errors.log`
   (`~/.local/state/nrc/errors.log` by default),
   with the toast/stderr message pointing at it.
+- `requireSuccess`/`requireSuccessWith` were missing from `docs-man`
+  and `docs-mdbook`'s generated function reference,
+  despite being public API documented in the README.
 
 ## [2.0.0] - 2026-06-12
 
