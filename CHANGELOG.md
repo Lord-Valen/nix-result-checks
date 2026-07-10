@@ -16,6 +16,8 @@ CI enforces this for changes touching `src/` or `nix/`.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-07-10
+
 ### Added
 
 - Checks can nest further report entries via `passthru.children` (a list
