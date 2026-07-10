@@ -440,6 +440,9 @@ It is useful for locating the derivation's outputs directly
 Note that `nix log <drvPath>` shows the builder's own stderr —
 not the command output,
 which is always redirected into the derivation's output files.
+A skipped check's `drvPath` still points at its (unbuilt) derivation;
+`nix log`/`nix build` on it run `mkSkip`'s trivial four-touch build,
+not the original command.
 
 ## Development
 

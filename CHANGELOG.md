@@ -44,6 +44,13 @@ CI enforces this for changes touching `src/` or `nix/`.
 - Corrected the `src/runner` module doc comment,
   which described only one nix-eval-jobs-unavailable fallback (`nix eval --json`)
   when file mode actually uses a different, flakeless one (`nix-instantiate`).
+- The JSON report generator no longer builds a skipped check
+  just to learn it was skipped.
+  It previously referenced a skipped check's
+  `exitCode`/`stdout`/`stderr` outputs unconditionally,
+  forcing `mkSkip`'s build on every report build;
+  it now checks `passthru.skip` at eval time
+  and never references those outputs for a skipped check at all.
 
 ## [2.0.0] - 2026-06-12
 

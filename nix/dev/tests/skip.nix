@@ -12,6 +12,7 @@
     let
       inherit (pkgs.resultChecks)
         mkEval
+        mkReport
         mkResult
         mkSkip
         mkSnapshot
@@ -82,6 +83,33 @@
                 checks.my-check = mkResult "my-check" "exit 0";
               }).my-check.passthru.skip or false;
             expected = false;
+          };
+        };
+
+        # $out is always touched regardless of a command's outcome, so the
+        # report generator can't tell a skip apart from a real build just
+        # by looking at outputs; it must consult passthru.skip and, when
+        # set, never reference the check's command output at all.
+        # Otherwise the trivial mkSkip build still happens on every
+        # report build, for every skipped check, defeating the point of
+        # skipping. drvPath stays real (only instantiation, not a build).
+        checks.report-skip = mkEval {
+          testSkippedCheckNeverForcesItsCommandOutput = {
+            expr =
+              lib.isString
+                (mkReport {
+                  fixture = {
+                    drvPath = "/nix/store/fake-fixture.drv";
+                    passthru = {
+                      skip = true;
+                      kind = "result";
+                    };
+                    exitCode = throw "never forced";
+                    stdout = throw "never forced";
+                    stderr = throw "never forced";
+                  };
+                }).drvPath;
+            expected = true;
           };
         };
       };
